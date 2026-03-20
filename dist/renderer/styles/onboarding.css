@@ -1,0 +1,592 @@
+/* Catppuccin Mocha palette — glassmorphism style matching toolbar/edit-modal */
+:root {
+  --bg: #1e1e2e;
+  --surface: #313244;
+  --text: #cdd6f4;
+  --subtext: #a6adc8;
+  --red: #f38ba8;
+  --green: #a6e3a1;
+  --blue: #89b4fa;
+  --yellow: #f9e2af;
+  --overlay: #45475a;
+  --overlay-hover: #585b70;
+  --glass-bg: rgba(30, 30, 46, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.15);
+  --glass-element-bg: rgba(69, 71, 90, 0.6);
+  --glass-element-border: rgba(255, 255, 255, 0.1);
+  --glass-element-hover: rgba(88, 91, 112, 0.7);
+}
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  font-family:
+    'Datatype',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  color: var(--text);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.back-btn {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--subtext);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+  -webkit-app-region: no-drag;
+  z-index: 10;
+}
+
+.back-btn:hover {
+  background: rgba(137, 180, 250, 0.25);
+  color: var(--blue);
+}
+
+.back-btn[hidden] {
+  display: none;
+}
+
+.close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--subtext);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+  -webkit-app-region: no-drag;
+  z-index: 10;
+}
+
+.close-btn:hover {
+  background: rgba(243, 139, 168, 0.35);
+  color: var(--red);
+}
+
+.onboarding-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow:
+    0 12px 48px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 40px;
+  gap: 28px;
+  animation: cardFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ── Step dots ─────────────────────────────────────────────────── */
+
+.step-dots {
+  display: flex;
+  gap: 8px;
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--overlay);
+  transition: background 0.2s ease;
+}
+
+.step-dot.active {
+  background: var(--red);
+}
+
+.step-dot.completed {
+  background: var(--green);
+}
+
+/* ── Step containers ───────────────────────────────────────────── */
+
+.onboarding-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+  animation: stepFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.onboarding-step[hidden] {
+  display: none;
+}
+
+@keyframes stepFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Header ────────────────────────────────────────────────────── */
+
+.onboarding-header {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.onboarding-header h1 {
+  font-family: 'Bitcount Single', 'Datatype', sans-serif;
+  font-size: 36px;
+  font-weight: 400;
+  color: var(--text);
+  letter-spacing: 0.04em;
+}
+
+.version-badge {
+  font-family:
+    'Datatype',
+    -apple-system,
+    sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--subtext);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-left: -4px;
+  vertical-align: middle;
+  letter-spacing: 0.03em;
+  position: relative;
+  top: -2px;
+}
+
+.onboarding-subtitle {
+  font-size: 13px;
+  color: var(--subtext);
+  letter-spacing: 0.02em;
+}
+
+/* ── Email form (Step 1) ───────────────────────────────────────── */
+
+.onboarding-form {
+  position: relative;
+  width: 100%;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  -webkit-app-region: no-drag;
+}
+
+#email-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--glass-element-border);
+  border-radius: 8px;
+  background: var(--glass-element-bg);
+  color: var(--text);
+  font-family:
+    'Datatype',
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+  font-size: 13px;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+#email-input::placeholder {
+  color: var(--overlay-hover);
+}
+
+#email-input:hover {
+  background: var(--glass-element-hover);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+#email-input:focus {
+  border-color: var(--red);
+  background: var(--glass-element-hover);
+}
+
+#activate-btn {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(200, 42, 42, 0.4);
+  background: rgba(200, 42, 42, 0.55);
+  color: var(--text);
+  font-family:
+    'Datatype',
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease;
+}
+
+#activate-btn:hover {
+  background: rgba(200, 42, 42, 0.7);
+}
+
+#activate-btn:active {
+  transform: scale(0.97);
+}
+
+#activate-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.error-message {
+  position: absolute;
+  bottom: -20px;
+  left: 0;
+  right: 0;
+  font-size: 11px;
+  color: var(--red);
+  text-align: center;
+  line-height: 1.3;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.onboarding-footer {
+  position: absolute;
+  bottom: 18px;
+  left: 0;
+  right: 0;
+  font-size: 11px;
+  color: var(--subtext);
+  text-align: center;
+  -webkit-app-region: no-drag;
+}
+
+.footer-link {
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.footer-link:hover {
+  color: var(--red);
+  text-decoration: underline;
+}
+
+/* ── Permissions (Step 2) ──────────────────────────────────────── */
+
+.permissions-list {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.permission-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--glass-element-bg);
+  border: 1px solid var(--glass-element-border);
+  transition: background 0.15s ease;
+}
+
+.permission-row:hover {
+  background: var(--glass-element-hover);
+}
+
+.permission-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.permission-icon {
+  color: var(--subtext);
+  flex-shrink: 0;
+}
+
+.permission-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.permission-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.permission-desc {
+  font-size: 11px;
+  color: var(--subtext);
+}
+
+.permission-btn {
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(137, 180, 250, 0.4);
+  background: rgba(137, 180, 250, 0.2);
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+  white-space: nowrap;
+}
+
+.permission-btn:hover {
+  background: rgba(137, 180, 250, 0.35);
+}
+
+.permission-btn[data-status='granted'] {
+  border-color: rgba(166, 227, 161, 0.4);
+  background: rgba(166, 227, 161, 0.15);
+  color: var(--green);
+  cursor: default;
+}
+
+.permission-btn[data-status='denied'] {
+  border-color: rgba(249, 226, 175, 0.4);
+  background: rgba(249, 226, 175, 0.15);
+  color: var(--yellow);
+}
+
+.permission-btn[data-status='denied']:hover {
+  background: rgba(249, 226, 175, 0.3);
+}
+
+/* ── Prerequisites (Step 3) ────────────────────────────────────── */
+
+.prerequisites-list {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.prereq-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--glass-element-bg);
+  border: 1px solid var(--glass-element-border);
+}
+
+.prereq-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.prereq-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.prereq-desc {
+  font-size: 11px;
+  color: var(--subtext);
+}
+
+.prereq-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prereq-badge {
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.prereq-badge.checking {
+  background: rgba(249, 226, 175, 0.15);
+  color: var(--yellow);
+}
+
+.prereq-badge.installed {
+  background: rgba(166, 227, 161, 0.15);
+  color: var(--green);
+}
+
+.prereq-badge.missing {
+  background: rgba(243, 139, 168, 0.15);
+  color: var(--red);
+}
+
+.prereq-badge.downloading,
+.prereq-badge.installing {
+  background: rgba(137, 180, 250, 0.15);
+  color: var(--blue);
+}
+
+.prereq-badge.error {
+  background: rgba(243, 139, 168, 0.15);
+  color: var(--red);
+}
+
+.prereq-install-btn {
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(137, 180, 250, 0.4);
+  background: rgba(137, 180, 250, 0.2);
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.prereq-install-btn:hover {
+  background: rgba(137, 180, 250, 0.35);
+}
+
+.prereq-install-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.prereq-progress {
+  width: 120px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--overlay);
+  overflow: hidden;
+}
+
+.prereq-progress-bar {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--blue);
+  transition: width 0.3s ease;
+}
+
+/* ── Continue / Launch button ──────────────────────────────────── */
+
+.continue-btn {
+  width: 100%;
+  max-width: 380px;
+  padding: 11px;
+  border-radius: 8px;
+  border: 1px solid rgba(200, 42, 42, 0.4);
+  background: rgba(200, 42, 42, 0.55);
+  color: var(--text);
+  font-family:
+    'Datatype',
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease,
+    opacity 0.15s ease;
+  -webkit-app-region: no-drag;
+}
+
+.continue-btn:hover {
+  background: rgba(200, 42, 42, 0.7);
+}
+
+.continue-btn:active {
+  transform: scale(0.97);
+}
+
+.continue-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}

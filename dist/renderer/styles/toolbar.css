@@ -1,0 +1,396 @@
+/* Catppuccin Mocha palette */
+:root {
+  --bg: #1e1e2e;
+  --surface: #313244;
+  --text: #cdd6f4;
+  --subtext: #a6adc8;
+  --red: #f38ba8;
+  --green: #a6e3a1;
+  --blue: #89b4fa;
+  --yellow: #f9e2af;
+  --overlay: #45475a;
+  --overlay-hover: #585b70;
+  /* Glassmorphism tokens */
+  --glass-bg: rgba(30, 30, 46, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.15);
+  --glass-element-bg: rgba(69, 71, 90, 0.6);
+  --glass-element-border: rgba(255, 255, 255, 0.1);
+  --glass-element-hover: rgba(88, 91, 112, 0.7);
+  --transition-speed: 0.35s;
+}
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+html,
+body {
+  height: 100%;
+  background: transparent;
+  font-family:
+    'Datatype',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  font-size: 13px;
+  color: var(--text);
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+/* ── Toolbar container (glassmorphism) ── */
+.toolbar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  margin-bottom: 4px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  -webkit-app-region: no-drag;
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease;
+}
+
+.toolbar.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── State containers — crossfade between normal / recording ── */
+.toolbar-controls,
+.toolbar-recording {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  transition:
+    opacity var(--transition-speed) ease,
+    transform var(--transition-speed) ease;
+}
+
+/* Normal state: controls in flow, recording hidden */
+.toolbar-controls {
+  position: relative;
+  opacity: 1;
+  transform: scale(1);
+}
+
+.toolbar-recording {
+  position: absolute;
+  opacity: 0;
+  transform: scale(0.92);
+  pointer-events: none;
+}
+
+/* Recording state: controls hidden, recording in flow */
+.toolbar.recording .toolbar-controls {
+  position: absolute;
+  opacity: 0;
+  transform: scale(0.92);
+  pointer-events: none;
+}
+
+.toolbar.recording .toolbar-recording {
+  position: relative;
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+/* ── Buttons ── */
+.toolbar-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--glass-element-border);
+  background: var(--glass-element-bg);
+  color: var(--text);
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease;
+}
+
+.toolbar-btn:hover {
+  background: var(--glass-element-hover);
+}
+
+.toolbar-btn:active {
+  transform: scale(0.93);
+}
+
+/* Record button */
+.toolbar-btn.record {
+  background: rgba(243, 139, 168, 0.55);
+  border-color: rgba(243, 139, 168, 0.35);
+  color: var(--red);
+}
+
+.toolbar-btn.record::before {
+  content: '';
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--red);
+}
+
+.toolbar-btn.record:hover {
+  background: rgba(243, 139, 168, 0.7);
+}
+
+/* Stop button (recording bar) */
+.toolbar-btn.stop {
+  background: rgba(243, 139, 168, 0.55);
+  border-color: rgba(243, 139, 168, 0.35);
+  color: var(--red);
+}
+
+.toolbar-btn.stop:hover {
+  background: rgba(243, 139, 168, 0.7);
+}
+
+.stop-square {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--red);
+}
+
+/* Pause button */
+.toolbar-btn.pause {
+  background: rgba(137, 180, 250, 0.5);
+  border-color: rgba(137, 180, 250, 0.35);
+  color: var(--blue);
+}
+
+.toolbar-btn.pause:hover {
+  background: rgba(137, 180, 250, 0.65);
+}
+
+.toolbar-btn.pause .pause-icon {
+  display: block;
+}
+
+.toolbar-btn.pause .resume-icon {
+  display: none;
+}
+
+.toolbar-btn.pause.active {
+  background: rgba(166, 227, 161, 0.5);
+  border-color: rgba(166, 227, 161, 0.35);
+  color: var(--green);
+}
+
+.toolbar-btn.pause.active .pause-icon {
+  display: none;
+}
+
+.toolbar-btn.pause.active .resume-icon {
+  display: block;
+}
+
+/* Retry button */
+.toolbar-btn.retry {
+  background: rgba(249, 226, 175, 0.45);
+  border-color: rgba(249, 226, 175, 0.3);
+  color: var(--yellow);
+}
+
+.toolbar-btn.retry:hover {
+  background: rgba(249, 226, 175, 0.6);
+}
+
+/* Layout swap button */
+.toolbar-btn.layout {
+  width: 32px;
+  height: 32px;
+  font-size: 15px;
+  background: var(--glass-element-bg);
+  color: var(--text);
+}
+
+/* ── Device selects ── */
+.device-select {
+  background: var(--glass-element-bg);
+  color: var(--text);
+  border: 1px solid var(--glass-element-border);
+  border-radius: 8px;
+  padding: 4px 24px 4px 8px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23a6adc8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  min-width: 100px;
+  max-width: 200px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.device-select:hover {
+  background: var(--glass-element-hover);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.device-select:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
+.device-select option {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* ── Update button ── */
+.toolbar-btn.update {
+  width: 32px;
+  height: 32px;
+  background: rgba(166, 227, 161, 0.45);
+  border-color: rgba(166, 227, 161, 0.35);
+  color: var(--green);
+  animation: pulse-update 2s ease-in-out infinite;
+}
+
+.toolbar-btn.update:hover {
+  background: rgba(166, 227, 161, 0.65);
+}
+
+@keyframes pulse-update {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(166, 227, 161, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 8px 3px rgba(166, 227, 161, 0.25);
+  }
+}
+
+/* ── Edit button ── */
+.toolbar-btn.edit {
+  width: 32px;
+  height: 32px;
+  background: var(--glass-element-bg);
+  color: var(--subtext);
+}
+
+.toolbar-btn.edit:hover {
+  color: var(--text);
+}
+
+/* ── Close button ── */
+.toolbar-btn.close {
+  width: 32px;
+  height: 32px;
+  background: var(--glass-element-bg);
+  color: var(--subtext);
+}
+
+.toolbar-btn.close:hover {
+  background: rgba(243, 139, 168, 0.4);
+  border-color: rgba(243, 139, 168, 0.3);
+  color: var(--red);
+}
+
+/* ── Divider ── */
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+/* ── Recording indicator ── */
+.rec-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+}
+
+.rec-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+.rec-timer {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+  min-width: 48px;
+}
+
+/* Paused state — dot stops pulsing, timer blinks */
+.toolbar.paused .rec-dot {
+  animation: none;
+  opacity: 0.4;
+}
+
+.toolbar.paused .rec-timer {
+  animation: blink-timer 1s step-end infinite;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes blink-timer {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}

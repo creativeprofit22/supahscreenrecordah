@@ -1,0 +1,799 @@
+@property --border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+:root {
+  --bg: #1e1e2e;
+  --surface: #313244;
+  --text: #cdd6f4;
+  --subtext: #a6adc8;
+  --red: #f38ba8;
+  --green: #a6e3a1;
+  --transition-speed: 0.4s;
+}
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--bg);
+  font-family:
+    'Datatype',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  color: var(--text);
+  overflow: hidden;
+}
+
+/* ── Preview container ── */
+.preview-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+  background: #6b8cce;
+  overflow: hidden;
+}
+
+/* ── Background canvas — full-size, renders ambient particles behind everything ── */
+.bg-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ── Screen video — absolutely positioned, horizontally draggable ── */
+.screen-video {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  object-fit: contain;
+  box-sizing: content-box;
+  border: 4px solid;
+  border-image: conic-gradient(
+      from var(--border-angle),
+      #d600ff,
+      #00ff9f,
+      #00b8ff,
+      #001eff,
+      #d600ff
+    )
+    1;
+  animation: spin-border 4s linear infinite;
+  cursor: grab;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--transition-speed) ease,
+    visibility var(--transition-speed) ease,
+    width var(--transition-speed) ease,
+    height var(--transition-speed) ease,
+    left var(--transition-speed) ease;
+}
+
+.screen-video.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Disable left/size transitions while dragging for instant feedback */
+.screen-video.dragging {
+  cursor: grabbing;
+  transition:
+    opacity var(--transition-speed) ease,
+    visibility var(--transition-speed) ease;
+}
+
+/* ── Camera container — holds video + waveform ── */
+.camera-container {
+  position: absolute;
+  top: 50%;
+  right: 24px;
+  transform: translateY(-50%);
+  width: 22%;
+  height: 70%;
+  z-index: 5;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--transition-speed) ease,
+    visibility var(--transition-speed) ease,
+    left var(--transition-speed) ease,
+    right var(--transition-speed) ease;
+}
+
+.camera-container.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ── Camera video — fills container, mirrored ── */
+.camera-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  background: var(--surface);
+  border: 4px solid;
+  border-image: conic-gradient(
+      from var(--border-angle),
+      #d600ff,
+      #00ff9f,
+      #00b8ff,
+      #001eff,
+      #d600ff
+    )
+    1;
+  animation: spin-border 4s linear infinite;
+}
+
+/* ── Action feed overlay — matches camera position ── */
+.action-feed-canvas {
+  position: absolute;
+  z-index: 6;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--transition-speed) ease,
+    visibility var(--transition-speed) ease;
+}
+
+.action-feed-canvas.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ── Camera name overlay ── */
+.camera-name {
+  position: absolute;
+  z-index: 11;
+  padding: 0;
+  font-size: 25px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--transition-speed) ease,
+    visibility var(--transition-speed) ease,
+    left var(--transition-speed) ease,
+    right var(--transition-speed) ease;
+}
+
+.camera-name.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.camera-name .char {
+  display: inline-block;
+  transition: transform 0.3s ease;
+  transform: scale(1);
+}
+
+.camera-name .char.magnified {
+  transform: scale(1.35);
+}
+
+/* ── Social links overlay — below camera ── */
+.camera-socials {
+  position: absolute;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 4px 0;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--transition-speed) ease,
+    visibility var(--transition-speed) ease,
+    left var(--transition-speed) ease,
+    right var(--transition-speed) ease;
+}
+
+.camera-socials.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.camera-socials .social-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: rgba(255, 255, 255, 0.85);
+  font-family: 'Datatype', 'Roboto', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.camera-socials .social-item svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.camera-socials .social-dot {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 10px;
+  margin: 0 6px;
+  user-select: none;
+}
+
+/* ── Idle state ── */
+.idle-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--bg);
+  z-index: 5;
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity var(--transition-speed) ease,
+    visibility var(--transition-speed) ease;
+}
+
+.idle-state.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* ── Audio waveform visualizer — bottom of camera container ── */
+.waveform-canvas {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 48px;
+  z-index: 8;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--transition-speed) ease,
+    visibility var(--transition-speed) ease;
+}
+
+.waveform-canvas.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ── Animated rotating border ── */
+@keyframes spin-border {
+  to {
+    --border-angle: 360deg;
+  }
+}
+
+/* ── Performance Monitor Overlay ── */
+.perf-monitor {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  width: 340px;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  z-index: 9999;
+  background: rgba(30, 30, 46, 0.92);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 11px;
+  color: #cdd6f4;
+  opacity: 0;
+  transform: translateX(20px);
+  pointer-events: none;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+.perf-monitor.active {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+/* Scrollbar styling */
+.perf-monitor::-webkit-scrollbar {
+  width: 4px;
+}
+
+.perf-monitor::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.perf-monitor::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+
+.perf-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.perf-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.perf-copy,
+.perf-close {
+  cursor: pointer;
+  opacity: 0.5;
+  font-size: 13px;
+  transition: opacity 0.15s ease;
+}
+
+.perf-copy:hover,
+.perf-close:hover {
+  opacity: 1;
+}
+
+.perf-body {
+  padding: 4px 0;
+}
+
+.perf-section {
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.perf-section:last-child {
+  border-bottom: none;
+}
+
+.perf-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #a6adc8;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* FPS gauges */
+.perf-fps-row {
+  display: flex;
+  gap: 8px;
+}
+
+.perf-fps-gauge {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 0;
+  background: rgba(69, 71, 90, 0.4);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.perf-fps-value {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.perf-fps-label {
+  font-size: 9px;
+  color: #a6adc8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Color states */
+.perf-good {
+  color: #a6e3a1;
+}
+
+.perf-warn {
+  color: #f9e2af;
+}
+
+.perf-danger {
+  color: #f38ba8;
+}
+
+.perf-good-bg {
+  background: #a6e3a1;
+}
+
+.perf-warn-bg {
+  background: #f9e2af;
+}
+
+.perf-danger-bg {
+  background: #f38ba8;
+}
+
+/* Frame time breakdown bar */
+.perf-frame-bar {
+  position: relative;
+  height: 18px;
+  background: rgba(69, 71, 90, 0.4);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  margin-bottom: 6px;
+}
+
+.perf-frame-segment {
+  height: 100%;
+  min-width: 2px;
+  transition: width 0.3s ease;
+}
+
+.perf-frame-empty {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #585b70;
+  font-size: 10px;
+}
+
+.perf-budget-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.6);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.perf-frame-avg {
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.perf-frame-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.perf-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  color: #a6adc8;
+}
+
+.perf-legend-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Memory */
+.perf-memory-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.perf-memory-bar-container {
+  flex: 1;
+  height: 8px;
+  background: rgba(69, 71, 90, 0.4);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.perf-memory-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.perf-memory-text {
+  font-size: 10px;
+  color: #a6adc8;
+  white-space: nowrap;
+}
+
+/* Active features */
+.perf-features-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.perf-feature-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+}
+
+.perf-feature-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.perf-feature-label {
+  flex: 1;
+  font-size: 10px;
+}
+
+.perf-feature-cost {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Warnings */
+.perf-warning-title {
+  color: #f9e2af;
+}
+
+.perf-warning-item {
+  font-size: 10px;
+  color: #f9e2af;
+  padding: 4px 8px;
+  margin-bottom: 4px;
+  background: rgba(249, 226, 175, 0.08);
+  border-radius: 6px;
+  border-left: 3px solid rgba(249, 226, 175, 0.4);
+  line-height: 1.4;
+}
+
+/* Recorder info */
+.perf-recorder-info {
+  font-size: 10px;
+  color: #a6adc8;
+  padding: 2px 0;
+}
+
+/* ── Playback overlay ── */
+.playback-container {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  background: var(--bg);
+}
+
+.playback-container.hidden {
+  display: none;
+}
+
+.playback-video {
+  max-width: 90%;
+  max-height: calc(100% - 100px);
+  border-radius: 12px;
+  background: #000;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.playback-actions {
+  display: flex;
+  gap: 16px;
+}
+
+.playback-btn {
+  padding: 10px 32px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
+}
+
+.playback-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.playback-btn:active {
+  transform: translateY(0);
+}
+
+.playback-btn--exit {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.playback-btn--export {
+  background: var(--green);
+  color: #1e1e2e;
+}
+
+/* ── Processing overlay ── */
+.processing-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  animation: processingFadeIn 0.25s ease;
+}
+
+.processing-overlay.hidden {
+  display: none;
+}
+
+@keyframes processingFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.processing-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.processing-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 255, 255, 0.08);
+  border-top-color: var(--red);
+  border-radius: 50%;
+  animation: processingSpinnerRotate 0.8s linear infinite;
+}
+
+@keyframes processingSpinnerRotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.processing-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.processing-sub {
+  font-size: 12px;
+  color: var(--subtext);
+  letter-spacing: 0.01em;
+}
+
+/* ── CTA Popup ── */
+.cta-popup {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(calc(100% + 24px));
+  z-index: 12;
+  padding: 12px 24px;
+  background: rgba(30, 30, 46, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  font-family:
+    'Datatype',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  /* Default transition used for slide-out (ease-in: accelerates away) */
+  transition:
+    transform 0.5s cubic-bezier(0.55, 0, 1, 0.45),
+    opacity 0.4s ease,
+    visibility 0s 0.5s;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Rotating shimmer border — conic gradient behind the content */
+.cta-popup::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 12px;
+  background: conic-gradient(from var(--border-angle), #d600ff, #00ff9f, #00b8ff, #001eff, #d600ff);
+  animation: spin-border 4s linear infinite;
+  z-index: -2;
+}
+
+/* Inner fill — covers the gradient, leaving only the border edge visible */
+.cta-popup::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: 10px;
+  background: rgba(30, 30, 46, 0.92);
+  z-index: -1;
+}
+
+.cta-popup.active {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  visibility: visible;
+  /* Slide-in: bouncy overshoot for punchy entrance */
+  transition:
+    transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.4s ease,
+    visibility 0s;
+}
+
+.cta-popup.slide-out {
+  transform: translateX(-50%) translateY(calc(100% + 24px));
+  opacity: 0;
+  /* Slide-out: smooth ease-in (accelerates downward, no bounce) */
+  transition:
+    transform 0.5s cubic-bezier(0.55, 0, 1, 0.45),
+    opacity 0.35s ease-in,
+    visibility 0s 0.5s;
+}

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; media-src 'self' blob: mediastream: file:; img-src 'self' data: blob:"
+    />
+    <title>supahscreenrecordah — Preview</title>
+    <link rel="stylesheet" href="dist/renderer/styles/main.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto&family=Bitcount+Single&family=Space+Grotesk&family=Outfit&family=Sora&family=Inter+Tight&family=Instrument+Sans&family=Bricolage+Grotesque&family=Plus+Jakarta+Sans&family=DM+Sans&family=Manrope&family=Lexend&family=Unbounded&family=Chakra+Petch&family=Orbitron&family=Rajdhani&family=Audiowide&family=Exo+2&family=Russo+One&family=Righteous&family=Fredoka&family=Quicksand&family=Comfortaa&family=Nunito&family=Rubik&family=Poppins&family=Montserrat&family=Raleway&family=Oswald&family=Bebas+Neue&family=Archivo+Black&family=Anton&family=Lobster&family=Pacifico&family=Permanent+Marker&family=Bangers&family=Press+Start+2P&family=Silkscreen&family=Jersey+10&family=Pixelify+Sans&family=Datatype&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="preview-container">
+      <!-- Background canvas — ambient particles rendered behind everything -->
+      <canvas id="bg-canvas" class="bg-canvas"></canvas>
+
+      <!-- Screen capture on the left -->
+      <video id="screen-video" class="screen-video" autoplay muted playsinline></video>
+      <!-- Camera portrait on the right (container holds video + waveform) -->
+      <div id="camera-container" class="camera-container">
+        <video id="camera-video" class="camera-video" autoplay muted playsinline></video>
+        <!-- Audio waveform visualizer — bottom of camera -->
+        <canvas id="waveform-canvas" class="waveform-canvas"></canvas>
+      </div>
+      <!-- Action feed overlay — drawn on top of camera -->
+      <canvas id="action-feed-canvas" class="action-feed-canvas"></canvas>
+
+      <!-- Name overlay — anchored below camera -->
+      <div id="camera-name" class="camera-name" hidden></div>
+      <!-- Socials overlay — anchored below name -->
+      <div id="camera-socials" class="camera-socials"></div>
+
+      <!-- CTA popup — slides in from bottom during recording -->
+      <div id="cta-popup" class="cta-popup"></div>
+
+      <!-- Idle state (hidden by default) -->
+      <div id="idle-state" class="idle-state hidden"></div>
+    </div>
+
+    <!-- Processing overlay — shown while remuxing/enhancing -->
+    <div id="processing-overlay" class="processing-overlay hidden">
+      <div class="processing-card">
+        <div class="processing-spinner"></div>
+        <div class="processing-text">Processing recording...</div>
+        <div class="processing-sub" id="processing-sub">Remuxing and enhancing audio</div>
+      </div>
+    </div>
+
+    <!-- Playback overlay — shown after recording stops -->
+    <div id="playback-container" class="playback-container hidden">
+      <video id="playback-video" class="playback-video" controls playsinline></video>
+      <div class="playback-actions">
+        <button id="playback-exit-btn" class="playback-btn playback-btn--exit">Exit</button>
+        <button id="playback-export-btn" class="playback-btn playback-btn--export">Export</button>
+      </div>
+    </div>
+
+    <script src="dist/renderer/pep.js"></script>
+    <script src="dist/renderer/shim.js"></script>
+    <script src="dist/shared/zoom.js"></script>
+    <script src="dist/renderer/snap-zoom.js"></script>
+    <script src="dist/renderer/perf-monitor.js"></script>
+    <script src="dist/renderer/snap-perf-monitor.js"></script>
+    <script src="dist/renderer/main.js"></script>
+  </body>
+</html>

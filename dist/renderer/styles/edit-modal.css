@@ -1,0 +1,540 @@
+/* Catppuccin Mocha palette — shared with toolbar */
+:root {
+  --bg: #1e1e2e;
+  --surface: #313244;
+  --text: #cdd6f4;
+  --subtext: #a6adc8;
+  --red: #f38ba8;
+  --green: #a6e3a1;
+  --blue: #89b4fa;
+  --overlay: #45475a;
+  --overlay-hover: #585b70;
+  /* Glassmorphism tokens */
+  --glass-bg: rgba(30, 30, 46, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.15);
+  --glass-element-bg: rgba(69, 71, 90, 0.6);
+  --glass-element-border: rgba(255, 255, 255, 0.1);
+  --glass-element-hover: rgba(88, 91, 112, 0.7);
+}
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+html,
+body {
+  height: 100%;
+  background: transparent;
+  font-family:
+    'Datatype',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  font-size: 13px;
+  color: var(--text);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* ── Modal ── */
+.modal {
+  width: 1080px;
+  max-height: 520px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow:
+    0 12px 48px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: modalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ── Modal header ── */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+  -webkit-app-region: drag;
+}
+
+.modal-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+
+.modal-close {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--subtext);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+  -webkit-app-region: no-drag;
+}
+
+.modal-close:hover {
+  background: var(--glass-element-bg);
+  color: var(--text);
+}
+
+/* ── Modal body ── */
+.modal-body {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ── Three-column layout ── */
+.modal-columns {
+  display: flex;
+  gap: 16px;
+}
+
+.modal-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal-col + .modal-col {
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  padding-left: 16px;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+}
+
+.field-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--subtext);
+  letter-spacing: 0.04em;
+}
+
+.field-row {
+  display: flex;
+  gap: 8px;
+}
+
+.field-input {
+  flex: 1;
+  height: 34px;
+  min-width: 0;
+  padding: 0 10px;
+  background: var(--glass-element-bg);
+  border: 1px solid var(--glass-element-border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.field-input::placeholder {
+  color: var(--overlay-hover);
+}
+
+.field-input:hover {
+  background: var(--glass-element-hover);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.field-input:focus {
+  border-color: var(--blue);
+  background: var(--glass-element-hover);
+}
+
+/* ── Font select ── */
+.field-select {
+  width: 100%;
+  height: 34px;
+  padding: 0 28px 0 10px;
+  background: var(--glass-element-bg);
+  border: 1px solid var(--glass-element-border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23a6adc8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.field-select:hover {
+  background-color: var(--glass-element-hover);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.field-select:focus {
+  border-color: var(--blue);
+  background-color: var(--glass-element-hover);
+}
+
+.field-select option {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* ── Textarea ── */
+.field-textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 68px;
+  padding: 8px 10px;
+  background: var(--glass-element-bg);
+  border: 1px solid var(--glass-element-border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  resize: none;
+  line-height: 1.4;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.field-textarea::placeholder {
+  color: var(--overlay-hover);
+}
+
+.field-textarea:hover {
+  background: var(--glass-element-hover);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.field-textarea:focus {
+  border-color: var(--blue);
+  background: var(--glass-element-hover);
+}
+
+/* ── Modal footer ── */
+.modal-footer {
+  padding: 10px 16px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.modal-save {
+  height: 32px;
+  padding: 0 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(137, 180, 250, 0.35);
+  background: rgba(137, 180, 250, 0.5);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.modal-save:hover {
+  background: rgba(137, 180, 250, 0.65);
+}
+
+.modal-save:active {
+  transform: scale(0.97);
+}
+
+/* ── Color swatch grid ── */
+.color-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+.color-swatch {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    transform 0.1s ease;
+  padding: 0;
+  outline: none;
+}
+
+.color-swatch:hover {
+  border-color: rgba(255, 255, 255, 0.35);
+  transform: scale(1.08);
+}
+
+.color-swatch.selected {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+/* ── Social media fields ── */
+.social-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.social-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.social-icon {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  color: var(--subtext);
+}
+
+.social-input {
+  height: 28px;
+  font-size: 12px;
+}
+
+/* ── Slider controls ── */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--glass-element-bg);
+  outline: none;
+  cursor: pointer;
+}
+
+.field-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--blue);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.field-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.field-slider::-webkit-slider-thumb:active {
+  transform: scale(1.1);
+  background: #a6c8ff;
+}
+
+/* ── Toggle checkbox row ── */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.field-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--blue);
+  cursor: pointer;
+}
+
+.toggle-label {
+  font-size: 12px;
+  color: var(--subtext);
+}
+
+.slider-value {
+  min-width: 28px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--subtext);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.field-hint {
+  font-size: 10px;
+  color: var(--overlay-hover);
+  letter-spacing: 0.02em;
+}
+
+.field-btn {
+  flex-shrink: 0;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid var(--glass-element-border);
+  background: var(--glass-element-bg);
+  color: var(--subtext);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.field-btn:hover {
+  background: var(--glass-element-hover);
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.field-btn:active {
+  transform: scale(0.97);
+}
+
+/* ── CTA Icon Picker ── */
+.cta-icon-btn {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--glass-element-border);
+  background: var(--glass-element-bg);
+  color: var(--subtext);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+  padding: 0;
+}
+
+.cta-icon-btn:hover {
+  background: var(--glass-element-hover);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.cta-icon-grid {
+  display: none;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  padding: 6px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  z-index: 100;
+}
+
+.cta-icon-grid.active {
+  display: grid;
+}
+
+.cta-icon-option {
+  width: 30px;
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--text);
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.cta-icon-option:hover {
+  background: var(--glass-element-hover);
+}
+
+.cta-icon-option.selected {
+  border-color: var(--blue);
+  background: rgba(137, 180, 250, 0.15);
+}
