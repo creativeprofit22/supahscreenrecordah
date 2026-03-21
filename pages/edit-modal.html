@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'"
+    />
+    <title>supahscreenrecordah — Edit Overlay</title>
+    <link rel="stylesheet" href="../dist/renderer/styles/edit-modal.css" />
+  </head>
+  <body>
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">Overlay Settings</span>
+        <button id="modal-close-btn" class="modal-close" title="Close">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="modal-columns">
+          <!-- Left column: Content + Typography -->
+          <div class="modal-col">
+            <div class="field-group">
+              <label class="field-label">Name</label>
+              <div class="field-row">
+                <input
+                  id="overlay-name"
+                  type="text"
+                  class="field-input"
+                  placeholder="Display name"
+                  maxlength="20"
+                />
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Font Size</label>
+              <select id="overlay-font-size" class="field-select">
+                <option value="16">16px</option>
+                <option value="18">18px</option>
+                <option value="20">20px</option>
+                <option value="22">22px</option>
+                <option value="25" selected>25px</option>
+                <option value="28">28px</option>
+                <option value="32">32px</option>
+                <option value="36">36px</option>
+                <option value="40">40px</option>
+                <option value="48">48px</option>
+              </select>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">CTA Popup</label>
+              <div class="field-row">
+                <button id="cta-icon-btn" class="cta-icon-btn" type="button" title="Pick icon">
+                  ☺
+                </button>
+                <input
+                  id="overlay-cta"
+                  type="text"
+                  class="field-input"
+                  placeholder="e.g. Subscribe now!"
+                  maxlength="50"
+                />
+                <button id="cta-test-btn" class="field-btn" type="button" title="Test CTA">
+                  Test
+                </button>
+              </div>
+              <div id="cta-icon-grid" class="cta-icon-grid">
+                <button class="cta-icon-option" data-icon="" title="No icon">✕</button>
+                <button class="cta-icon-option" data-icon="🔔" title="Subscribe">🔔</button>
+                <button class="cta-icon-option" data-icon="👍" title="Like">👍</button>
+                <button class="cta-icon-option" data-icon="❤️" title="Love">❤️</button>
+                <button class="cta-icon-option" data-icon="💬" title="Comment">💬</button>
+                <button class="cta-icon-option" data-icon="📢" title="Share">📢</button>
+                <button class="cta-icon-option" data-icon="👇" title="Link below">👇</button>
+                <button class="cta-icon-option" data-icon="➡️" title="Follow">➡️</button>
+                <button class="cta-icon-option" data-icon="🔗" title="Link">🔗</button>
+                <button class="cta-icon-option" data-icon="📲" title="Download">📲</button>
+                <button class="cta-icon-option" data-icon="🎁" title="Free / Gift">🎁</button>
+                <button class="cta-icon-option" data-icon="🔥" title="Trending">🔥</button>
+                <button class="cta-icon-option" data-icon="⚡" title="Limited time">⚡</button>
+                <button class="cta-icon-option" data-icon="⭐" title="Rate / Star">⭐</button>
+                <button class="cta-icon-option" data-icon="🚀" title="Launch">🚀</button>
+                <button class="cta-icon-option" data-icon="💰" title="Deal / Offer">💰</button>
+                <button class="cta-icon-option" data-icon="🏷️" title="Sale">🏷️</button>
+                <button class="cta-icon-option" data-icon="📩" title="DM / Message">📩</button>
+                <button class="cta-icon-option" data-icon="👋" title="Join">👋</button>
+                <button class="cta-icon-option" data-icon="✅" title="Done / Sign up">✅</button>
+                <button class="cta-icon-option" data-icon="⏰" title="Don't miss">⏰</button>
+              </div>
+              <div class="slider-row">
+                <input
+                  id="cta-interval"
+                  type="range"
+                  class="field-slider"
+                  min="45000"
+                  max="180000"
+                  step="5000"
+                  value="180000"
+                />
+                <span id="cta-interval-val" class="slider-value">3m</span>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Font</label>
+              <select id="overlay-font" class="field-select">
+                <option value="Datatype">Datatype</option>
+                <option value="Roboto">Roboto</option>
+                <option value="Bitcount Single">Bitcount Single</option>
+                <option value="Space Grotesk">Space Grotesk</option>
+                <option value="Outfit">Outfit</option>
+                <option value="Sora">Sora</option>
+                <option value="Inter Tight">Inter Tight</option>
+                <option value="Instrument Sans">Instrument Sans</option>
+                <option value="Bricolage Grotesque">Bricolage Grotesque</option>
+                <option value="Plus Jakarta Sans">Plus Jakarta Sans</option>
+                <option value="DM Sans">DM Sans</option>
+                <option value="Manrope">Manrope</option>
+                <option value="Lexend">Lexend</option>
+                <option value="Unbounded">Unbounded</option>
+                <option value="Chakra Petch">Chakra Petch</option>
+                <option value="Orbitron">Orbitron</option>
+                <option value="Rajdhani">Rajdhani</option>
+                <option value="Audiowide">Audiowide</option>
+                <option value="Exo 2">Exo 2</option>
+                <option value="Russo One">Russo One</option>
+                <option value="Righteous">Righteous</option>
+                <option value="Fredoka">Fredoka</option>
+                <option value="Quicksand">Quicksand</option>
+                <option value="Comfortaa">Comfortaa</option>
+                <option value="Nunito">Nunito</option>
+                <option value="Rubik">Rubik</option>
+                <option value="Poppins">Poppins</option>
+                <option value="Montserrat">Montserrat</option>
+                <option value="Raleway">Raleway</option>
+                <option value="Oswald">Oswald</option>
+                <option value="Bebas Neue">Bebas Neue</option>
+                <option value="Archivo Black">Archivo Black</option>
+                <option value="Anton">Anton</option>
+                <option value="Lobster">Lobster</option>
+                <option value="Pacifico">Pacifico</option>
+                <option value="Permanent Marker">Permanent Marker</option>
+                <option value="Bangers">Bangers</option>
+                <option value="Press Start 2P">Press Start 2P</option>
+                <option value="Silkscreen">Silkscreen</option>
+                <option value="Jersey 10">Jersey 10</option>
+                <option value="Pixelify Sans">Pixelify Sans</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Middle column: Style -->
+          <div class="modal-col">
+            <div class="field-group">
+              <label class="field-label">Background</label>
+              <select id="bg-style-select" class="field-select">
+                <option value="solid">Solid</option>
+                <option value="mesh">Mesh Gradient</option>
+              </select>
+              <div id="bg-color-grid" class="color-grid">
+                <button
+                  class="color-swatch selected"
+                  data-color="#6b8cce"
+                  style="background: #6b8cce"
+                  title="Blue"
+                ></button>
+                <button
+                  class="color-swatch"
+                  data-color="#7c6bce"
+                  style="background: #7c6bce"
+                  title="Indigo"
+                ></button>
+                <button
+                  class="color-swatch"
+                  data-color="#6bcea1"
+                  style="background: #6bcea1"
+                  title="Mint"
+                ></button>
+                <button
+                  class="color-swatch"
+                  data-color="#ce6b8c"
+                  style="background: #ce6b8c"
+                  title="Rose"
+                ></button>
+                <button
+                  class="color-swatch"
+                  data-color="#ce8c6b"
+                  style="background: #ce8c6b"
+                  title="Peach"
+                ></button>
+                <button
+                  class="color-swatch"
+                  data-color="#8cce6b"
+                  style="background: #8cce6b"
+                  title="Lime"
+                ></button>
+                <button
+                  class="color-swatch"
+                  data-color="#6bcec5"
+                  style="background: #6bcec5"
+                  title="Teal"
+                ></button>
+                <button
+                  class="color-swatch"
+                  data-color="#c56bce"
+                  style="background: #c56bce"
+                  title="Orchid"
+                ></button>
+                <button
+                  class="color-swatch"
+                  data-color="#cec56b"
+                  style="background: #cec56b"
+                  title="Gold"
+                ></button>
+                <button
+                  class="color-swatch"
+                  data-color="#6b9fce"
+                  style="background: #6b9fce"
+                  title="Sky"
+                ></button>
+                <button
+                  class="color-swatch"
+                  data-color="#ce6b6b"
+                  style="background: #ce6b6b"
+                  title="Coral"
+                ></button>
+                <button
+                  class="color-swatch"
+                  data-color="#8b8b9e"
+                  style="background: #8b8b9e"
+                  title="Slate"
+                ></button>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Ambient Particles</label>
+              <label class="toggle-row">
+                <input id="ambient-particles-toggle" type="checkbox" class="field-checkbox" />
+                <span class="toggle-label">Background particles</span>
+              </label>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Mouse Click Zoom</label>
+              <div class="slider-row">
+                <input
+                  id="mouse-zoom"
+                  type="range"
+                  class="field-slider"
+                  min="1.2"
+                  max="2.5"
+                  step="0.1"
+                  value="1.5"
+                />
+                <span id="mouse-zoom-val" class="slider-value">1.5</span>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Zoom Hold Duration</label>
+              <div class="slider-row">
+                <input
+                  id="zoom-linger"
+                  type="range"
+                  class="field-slider"
+                  min="500"
+                  max="5000"
+                  step="100"
+                  value="2500"
+                />
+                <span id="zoom-linger-val" class="slider-value">2.5s</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Socials column -->
+          <div class="modal-col">
+            <div class="field-group">
+              <label class="field-label">Socials</label>
+              <div class="social-fields">
+                <div class="social-row">
+                  <svg class="social-icon" viewBox="0 0 24 24">
+                    <path
+                      fill="currentColor"
+                      d="M14.234 10.162 22.977 0h-2.072l-7.591 8.824L7.251 0H.258l9.168 13.343L.258 24H2.33l8.016-9.318L16.749 24h6.993zm-2.837 3.299-.929-1.329L3.076 1.56h3.182l5.965 8.532.929 1.329 7.754 11.09h-3.182z"
+                    />
+                  </svg>
+                  <input
+                    id="social-x"
+                    type="text"
+                    class="field-input social-input"
+                    placeholder="username"
+                    data-platform="x"
+                  />
+                </div>
+                <div class="social-row">
+                  <svg class="social-icon" viewBox="0 0 24 24">
+                    <path
+                      fill="currentColor"
+                      d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12z"
+                    />
+                  </svg>
+                  <input
+                    id="social-youtube"
+                    type="text"
+                    class="field-input social-input"
+                    placeholder="username"
+                    data-platform="youtube"
+                  />
+                </div>
+                <div class="social-row">
+                  <svg class="social-icon" viewBox="0 0 24 24">
+                    <path
+                      fill="currentColor"
+                      d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"
+                    />
+                  </svg>
+                  <input
+                    id="social-tiktok"
+                    type="text"
+                    class="field-input social-input"
+                    placeholder="username"
+                    data-platform="tiktok"
+                  />
+                </div>
+                <div class="social-row">
+                  <svg class="social-icon" viewBox="0 0 24 24">
+                    <path
+                      fill="currentColor"
+                      d="M7.0301.084c-1.2768.0602-2.1487.264-2.911.5634-.7888.3075-1.4575.72-2.1228 1.3877-.6652.6677-1.075 1.3368-1.3802 2.127-.2954.7638-.4956 1.6365-.552 2.914-.0564 1.2775-.0689 1.6882-.0626 4.947.0062 3.2586.0206 3.6671.0825 4.9473.061 1.2765.264 2.1482.5635 2.9107.308.7889.72 1.4573 1.388 2.1228.6679.6655 1.3365 1.0743 2.1285 1.38.7632.295 1.6361.4961 2.9134.552 1.2773.056 1.6884.069 4.9462.0627 3.2578-.0062 3.668-.0207 4.9478-.0814 1.28-.0607 2.147-.2652 2.9098-.5633.7889-.3086 1.4578-.72 2.1228-1.3881.665-.668 1.0745-1.3367 1.3802-2.1272.2957-.7637.4966-1.636.552-2.9124.056-1.2809.0692-1.6898.063-4.948-.0063-3.2583-.021-3.6668-.0817-4.9465-.0607-1.2797-.264-2.1487-.5633-2.9117-.3084-.7889-.72-1.4568-1.3876-2.1228C21.2982 1.33 20.628.9208 19.8378.6165 19.074.321 18.2017.1197 16.9244.0645 15.6471.0093 15.236-.005 11.977.0014 8.718.0076 8.31.0215 7.0301.0839m.1402 21.6932c-1.17-.0509-1.8053-.2453-2.2287-.408-.5606-.216-.96-.4771-1.3819-.895-.422-.4178-.6794-.8186-.8964-1.3794-.1636-.4233-.3586-1.0584-.4114-2.2293-.0567-1.2671-.0689-1.6479-.0726-4.8566-.0036-3.2079.008-3.5882.0608-4.8568.0503-1.1707.2456-1.8057.408-2.2282.2166-.5613.4772-.96.895-1.3816.4188-.4217.8184-.6814 1.3783-.8988.4224-.1635 1.0576-.3588 2.2288-.4116 1.2672-.0567 1.6479-.0689 4.8564-.0726 3.2085-.0036 3.5884.0084 4.8574.0612 1.1703.0508 1.8053.2463 2.2282.408.5608.216.96.4754 1.3816.895.4217.4194.6816.8176.8962 1.3783.1634.4232.3584 1.0578.4114 2.2296.0568 1.2673.069 1.6477.0726 4.8565.0037 3.2088-.0083 3.5882-.0612 4.8576-.0507 1.1706-.2455 1.8057-.4076 2.2282-.2164.5606-.4772.96-.8948 1.3818-.4194.4218-.8176.6812-1.3788.8968-.4228.1633-1.058.3588-2.229.4114-1.2676.0567-1.6477.069-4.857.0726-3.2093.0037-3.5882-.0083-4.8572-.0607M16.953 5.5864A1.44 1.44 0 1 0 18.39 4.144a1.44 1.44 0 0 0-1.437 1.4424M5.8385 12.012c.0067 3.4032 2.7706 6.1557 6.173 6.1493 3.4026-.0065 6.157-2.7701 6.1506-6.1733-.0065-3.4032-2.771-6.1565-6.174-6.1498-3.403.0067-6.156 2.771-6.1496 6.1738M8 12.0077a4 4 0 1 1 4.008 3.9921A3.9996 3.9996 0 0 1 8 12.0077"
+                    />
+                  </svg>
+                  <input
+                    id="social-instagram"
+                    type="text"
+                    class="field-input social-input"
+                    placeholder="username"
+                    data-platform="instagram"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Camera column -->
+          <div class="modal-col">
+            <div class="field-group">
+              <label class="field-label">Cinema Filter</label>
+              <select id="cinema-filter-select" class="field-select">
+                <option value="none" selected>None</option>
+                <option value="teal-orange">Teal &amp; Orange</option>
+                <option value="noir">Noir</option>
+                <option value="vintage">Vintage Film</option>
+                <option value="matrix">Matrix</option>
+                <option value="blade-runner">Blade Runner</option>
+                <option value="moonlight">Moonlight</option>
+              </select>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Brightness</label>
+              <div class="slider-row">
+                <input
+                  id="cam-brightness"
+                  type="range"
+                  class="field-slider"
+                  min="50"
+                  max="150"
+                  value="105"
+                />
+                <span id="cam-brightness-val" class="slider-value">105</span>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Contrast</label>
+              <div class="slider-row">
+                <input
+                  id="cam-contrast"
+                  type="range"
+                  class="field-slider"
+                  min="50"
+                  max="150"
+                  value="110"
+                />
+                <span id="cam-contrast-val" class="slider-value">110</span>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Saturation</label>
+              <div class="slider-row">
+                <input
+                  id="cam-saturation"
+                  type="range"
+                  class="field-slider"
+                  min="0"
+                  max="200"
+                  value="115"
+                />
+                <span id="cam-saturation-val" class="slider-value">115</span>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Warmth</label>
+              <div class="slider-row">
+                <input
+                  id="cam-warmth"
+                  type="range"
+                  class="field-slider"
+                  min="-50"
+                  max="50"
+                  value="5"
+                />
+                <span id="cam-warmth-val" class="slider-value">5</span>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Sharpness</label>
+              <div class="slider-row">
+                <input
+                  id="cam-sharpness"
+                  type="range"
+                  class="field-slider"
+                  min="0"
+                  max="100"
+                  value="0"
+                />
+                <span id="cam-sharpness-val" class="slider-value">0</span>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Softness</label>
+              <div class="slider-row">
+                <input
+                  id="cam-softness"
+                  type="range"
+                  class="field-slider"
+                  min="0"
+                  max="100"
+                  value="0"
+                />
+                <span id="cam-softness-val" class="slider-value">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="modal-save-btn" class="modal-save">Save</button>
+      </div>
+    </div>
+
+    <script src="../dist/renderer/edit-modal/index.js"></script>
+  </body>
+</html>

@@ -1,7 +1,7 @@
 {
   "name": "supahscreenrecordah",
   "version": "1.0.8",
-  "description": "macOS desktop app for screen + camera recording with a floating toolbar UI",
+  "description": "macOS/Windows desktop app for screen + camera recording with a floating toolbar UI",
   "main": "dist/main/index.js",
   "author": "KenKai",
   "license": "ISC",
@@ -11,8 +11,71 @@
     "url": "https://github.com/creativeprofit22/supahscreenrecordah.git"
   },
   "type": "commonjs",
+  "scripts": {
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "dev": "npm run build && electron .",
+    "watch:main": "tsc -p tsconfig.main.json --watch --preserveWatchOutput",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:preload": "node scripts/build-preload.js",
+    "build:renderer": "node scripts/build-renderer.js",
+    "build": "npm run clean && npm run build:main && npm run build:preload && npm run build:renderer",
+    "postbuild": "node scripts/verify-build.js",
+    "dist:win": "npm run build && npx electron-builder --win --dir",
+    "dist:win:installer": "npm run build && npx electron-builder --win nsis",
+    "dist:mac": "npm run build && npx electron-builder --mac --dir",
+    "dist:mac:installer": "npm run build && npx electron-builder --mac dmg",
+    "dist:linux": "npm run build && npx electron-builder --linux --dir",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
   "dependencies": {
     "uiohook-napi": "^1.5.4"
+  },
+  "devDependencies": {
+    "@electron/fuses": "^2.1.0",
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^4.1.0",
+    "electron": "^35.0.0",
+    "electron-builder": "^26.8.1",
+    "tsdown": "^0.21.4",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.0"
+  },
+  "build": {
+    "appId": "com.kenkai.supahscreenrecordah",
+    "productName": "supahscreenrecordah",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "!dist/**/*.d.ts",
+      "!dist/**/*.d.ts.map",
+      "!dist/**/*.js.map",
+      "pages/**/*",
+      "assets/**/*",
+      "native/**/bin/**",
+      "native/**/index.js",
+      "native/**/package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/uiohook-napi/**",
+      "native/**"
+    ],
+    "win": {
+      "target": "dir"
+    },
+    "mac": {
+      "target": "dir",
+      "category": "public.app-category.video"
+    },
+    "linux": {
+      "target": "dir"
+    },
+    "extraResources": [],
+    "afterPack": "./scripts/afterPack.js"
   },
   "overrides": {
     "@electron/asar": "^4.1.0",

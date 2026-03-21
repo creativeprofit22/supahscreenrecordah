@@ -1,0 +1,189 @@
+import {
+  app,
+  session,
+  ipcMain,
+  desktopCapturer,
+  nativeImage,
+} from 'electron';
+import path from 'path';
+import fs from 'fs';
+import os from 'os';
+import { createMainWindow, getMainWindow } from './windows/main-window';
+import { createToolbarWindow, getToolbarWindow } from './windows/toolbar-window';
+import {
+  registerAllHandlers,
+  stopUiohook,
+  resendStateToMainWindow,
+} from './ipc';
+import { isValidSender } from './ipc/helpers';
+import { loadConfig } from './store';
+import { Channels } from '../shared/channels';
+import { registerAppScheme, registerAppProtocolHandler } from './services/protocol';
+
+/** Source ID selected by the renderer for the next getDisplayMedia call. */
+let pendingScreenSourceId: string | null = null;
+/** Source name for fallback matching when ID doesn't match (e.g. OS-supplemented windows). */
+let pendingScreenSourceName: string | null = null;
+
+process.on('uncaughtException', (error: Error) => {
+  console.error('Uncaught exception:', error);
+});
+
+process.on('unhandledRejection', (reason: unknown) => {
+  console.error('Unhandled rejection:', reason);
+});
+
+// Register the custom 'app' scheme before the app is ready — required by Chromium.
+registerAppScheme();
+
+app
+  .whenReady()
+  .then(async () => {
+    // Install the app:// protocol handler for serving local files securely.
+    registerAppProtocolHandler();
+
+    // Set dock icon (visible in dev mode; packaged builds use the embedded .icns)
+    if (process.platform === 'darwin' && app.dock) {
+      const iconPath = path.join(__dirname, '..', '..', 'assets', 'icon_1024x1024.png');
+      const icon = nativeImage.createFromPath(iconPath);
+      if (!icon.isEmpty()) {
+        app.dock.setIcon(icon);
+      }
+    }
+
+    loadConfig();
+    registerAllHandlers();
+
+    // Set up permission request handler to allow media permissions
+    session.defaultSession.setPermissionRequestHandler(
+      (_webContents, permission, callback) => {
+        if (permission === 'media') {
+          callback(true);
+        } else {
+          callback(false);
+        }
+      },
+    );
+
+    // Allow synchronous permission checks (needed for enumerateDevices)
+    session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
+      if (permission === 'media') {
+        return true;
+      }
+      return false;
+    });
+
+    // IPC: renderer tells main which source to capture before calling getDisplayMedia
+    ipcMain.handle(
+      Channels.DEVICES_SELECT_SCREEN_SOURCE,
+      (event: Electron.IpcMainInvokeEvent, sourceId: string, sourceName?: string) => {
+        if (!isValidSender(event)) {
+          throw new Error('Unauthorized IPC sender');
+        }
+        pendingScreenSourceId = sourceId;
+        pendingScreenSourceName = sourceName ?? null;
+      },
+    );
+
+    // Set up display media request handler for screen capture.
+    // The renderer calls selectScreenSource(id) then getDisplayMedia().
+    // This handler finds the matching source and passes it to Chromium.
+    session.defaultSession.setDisplayMediaRequestHandler(
+      async (_request, callback) => {
+        try {
+          const sources = await desktopCapturer.getSources({
+            types: ['screen', 'window'],
+          });
+          let target = pendingScreenSourceId
+            ? sources.find((s) => s.id === pendingScreenSourceId)
+            : undefined;
+          // If ID match failed (e.g. supplemental window from OS enumeration),
+          // try matching by window title
+          if (!target && pendingScreenSourceName) {
+            target = sources.find((s) => s.name === pendingScreenSourceName);
+          }
+          target = target ?? sources[0];
+          pendingScreenSourceId = null;
+          pendingScreenSourceName = null;
+
+          if (target) {
+            callback({ video: target, audio: 'loopback' });
+          } else {
+            console.error('No screen sources available');
+            callback({});
+          }
+        } catch (error) {
+          console.error('Failed to get display media sources:', error);
+          callback({});
+        }
+      },
+      // Disable macOS 15+ system picker — this app has its own source picker
+      // in the toolbar, so we always handle source selection via the callback.
+      { useSystemPicker: false },
+    );
+
+    createMainWindow();
+    createToolbarWindow();
+
+    app.on('activate', () => {
+      const mainWin = getMainWindow();
+      if (mainWin) {
+        // Window exists but may be minimized — restore and focus it
+        if (mainWin.isMinimized()) {
+          mainWin.restore();
+        }
+        mainWin.show();
+        mainWin.focus();
+      } else {
+        // Main window was closed or never created — recreate it
+        createMainWindow({ show: false });
+        resendStateToMainWindow();
+        if (!getToolbarWindow()) {
+          createToolbarWindow();
+        }
+      }
+    });
+  })
+  .catch((error: unknown) => {
+    console.error('Failed to initialize app:', error);
+    app.quit();
+  });
+
+app.on('will-quit', () => {
+  stopUiohook();
+});
+
+app.on('before-quit', () => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const cursor = require('../../native/macos-cursor') as {
+      setSystemCursorHidden: (hidden: boolean) => void;
+    };
+    cursor.setSystemCursorHidden(false);
+  } catch {
+    // Native addon not available — no-op
+  }
+
+  // Clean up any orphaned supahscreenrecordah temp files (playback, export, raw)
+  try {
+    const tmpDir = os.tmpdir();
+    const entries = fs.readdirSync(tmpDir);
+    for (const entry of entries) {
+      if (entry.startsWith('supahscreenrecordah-') && entry.endsWith('.mp4')) {
+        try {
+          fs.unlinkSync(path.join(tmpDir, entry));
+        } catch {
+          // ignore — file may be in use or already deleted
+        }
+      }
+    }
+  } catch {
+    // ignore tmpdir read failure
+  }
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});

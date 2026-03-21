@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; media-src 'self'; img-src 'self' data: blob:; connect-src 'self'"
+    />
+    <title>supahscreenrecordah -- Welcome</title>
+    <link rel="stylesheet" href="../dist/renderer/styles/onboarding.css" />
+  </head>
+  <body>
+    <div class="onboarding-card">
+      <button id="back-btn" class="back-btn" title="Back" hidden>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path
+            d="M8 1L3 6L8 11"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
+
+      <button id="close-btn" class="close-btn" title="Quit">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path
+            d="M2 2L10 10M2 10L10 2"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+
+      <!-- Step indicator dots -->
+      <div class="step-dots">
+        <span class="step-dot active" data-step="permissions"></span>
+        <span class="step-dot" data-step="prerequisites"></span>
+      </div>
+
+      <!-- Step 1: Permissions -->
+      <div id="step-permissions" class="onboarding-step active">
+        <div class="onboarding-header">
+          <h1>Permissions</h1>
+          <p class="onboarding-subtitle">supahscreenrecordah needs a few permissions to work</p>
+        </div>
+
+        <div class="permissions-list">
+          <div class="permission-row" data-permission="camera">
+            <div class="permission-info">
+              <svg
+                class="permission-icon"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M23 7l-7 5 7 5V7z"></path>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+              </svg>
+              <div class="permission-text">
+                <span class="permission-name">Camera</span>
+                <span class="permission-desc">Record your webcam</span>
+              </div>
+            </div>
+            <button class="permission-btn" data-status="not-determined">Enable</button>
+          </div>
+
+          <div class="permission-row" data-permission="microphone">
+            <div class="permission-info">
+              <svg
+                class="permission-icon"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                <line x1="12" y1="19" x2="12" y2="23"></line>
+                <line x1="8" y1="23" x2="16" y2="23"></line>
+              </svg>
+              <div class="permission-text">
+                <span class="permission-name">Microphone</span>
+                <span class="permission-desc">Record your voice</span>
+              </div>
+            </div>
+            <button class="permission-btn" data-status="not-determined">Enable</button>
+          </div>
+
+          <div class="permission-row" data-permission="screenRecording">
+            <div class="permission-info">
+              <svg
+                class="permission-icon"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+              </svg>
+              <div class="permission-text">
+                <span class="permission-name">Screen Recording</span>
+                <span class="permission-desc">Capture your screen</span>
+              </div>
+            </div>
+            <button class="permission-btn" data-status="not-determined">Enable</button>
+          </div>
+
+          <div class="permission-row" data-permission="accessibility">
+            <div class="permission-info">
+              <svg
+                class="permission-icon"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"></path>
+                <path d="M12 8v4"></path>
+                <path d="M9 18l3-6 3 6"></path>
+              </svg>
+              <div class="permission-text">
+                <span class="permission-name">Accessibility</span>
+                <span class="permission-desc">Click-to-zoom &amp; keyboard tracking</span>
+              </div>
+            </div>
+            <button class="permission-btn" data-status="not-determined">Enable</button>
+          </div>
+        </div>
+
+        <button id="permissions-continue" class="continue-btn" disabled>Continue</button>
+      </div>
+
+      <!-- Step 2: Prerequisites -->
+      <div id="step-prerequisites" class="onboarding-step" hidden>
+        <div class="onboarding-header">
+          <h1>Prerequisites</h1>
+          <p class="onboarding-subtitle">Checking required tools</p>
+        </div>
+
+        <div class="prerequisites-list">
+          <div class="prereq-row" data-dep="ffmpeg">
+            <div class="prereq-info">
+              <span class="prereq-name">FFmpeg</span>
+              <span class="prereq-desc">Video processing engine</span>
+            </div>
+            <div class="prereq-status">
+              <span class="prereq-badge checking">Checking...</span>
+            </div>
+          </div>
+        </div>
+
+        <button id="prereqs-continue" class="continue-btn" disabled>Launch supahscreenrecordah</button>
+      </div>
+    </div>
+
+    <script src="../dist/renderer/onboarding/index.js"></script>
+  </body>
+</html>

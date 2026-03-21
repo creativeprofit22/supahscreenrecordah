@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; media-src 'self' blob: mediastream:; img-src 'self' data: blob:; connect-src 'self'"
+    />
+    <title>supahscreenrecordah -- Toolbar</title>
+    <link rel="stylesheet" href="../dist/renderer/styles/toolbar.css" />
+  </head>
+  <body>
+    <div class="toolbar">
+      <!-- Normal controls (hidden during recording) -->
+      <div class="toolbar-controls">
+        <button id="close-btn" class="toolbar-btn close" title="Close app">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path
+              d="M3 3L11 11M3 11L11 3"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+
+        <div class="toolbar-divider"></div>
+
+        <select id="screen-select" class="device-select" title="Screen source">
+          <option>Screen</option>
+        </select>
+
+        <button id="layout-toggle" class="toolbar-btn layout" title="Swap camera/screen sides">
+          ⇄
+        </button>
+
+        <div class="toolbar-divider"></div>
+
+        <select id="camera-select" class="device-select" title="Camera">
+          <option>Camera</option>
+        </select>
+
+        <select id="mic-select" class="device-select" title="Microphone">
+          <option>Mic</option>
+        </select>
+
+        <div class="toolbar-divider"></div>
+
+        <button id="edit-btn" class="toolbar-btn edit" title="Edit overlay settings">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path
+              d="M10.08 1.42a1.5 1.5 0 0 1 2.12 0l.38.38a1.5 1.5 0 0 1 0 2.12L4.5 12H2v-2.5l8.08-8.08Z"
+              stroke="currentColor"
+              stroke-width="1.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+
+        <button
+          id="update-btn"
+          class="toolbar-btn update"
+          title="Update available"
+          style="display: none"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path
+              d="M7 1v9M3.5 6.5L7 10l3.5-3.5"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path d="M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+        </button>
+
+        <div class="toolbar-divider"></div>
+
+        <button id="record-btn" class="toolbar-btn record" title="Record"></button>
+      </div>
+
+      <!-- Recording controls (shown during recording) -->
+      <div class="toolbar-recording">
+        <div class="rec-indicator">
+          <span class="rec-dot"></span>
+          <span id="rec-timer" class="rec-timer">00:00</span>
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <button id="rec-pause-btn" class="toolbar-btn pause" title="Pause">
+          <svg class="pause-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <rect x="2" y="1" width="3.5" height="12" rx="1" fill="currentColor" />
+            <rect x="8.5" y="1" width="3.5" height="12" rx="1" fill="currentColor" />
+          </svg>
+          <svg class="resume-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M3 1.5v11l9-5.5-9-5.5Z" fill="currentColor" />
+          </svg>
+        </button>
+
+        <button id="rec-retry-btn" class="toolbar-btn retry" title="Restart recording">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path
+              d="M1.5 7a5.5 5.5 0 0 1 9.9-3.3M12.5 7a5.5 5.5 0 0 1-9.9 3.3"
+              stroke="currentColor"
+              stroke-width="1.4"
+              stroke-linecap="round"
+            />
+            <path
+              d="M11.5 1v3h-3"
+              stroke="currentColor"
+              stroke-width="1.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M2.5 13v-3h3"
+              stroke="currentColor"
+              stroke-width="1.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+
+        <div class="toolbar-divider"></div>
+
+        <button id="rec-stop-btn" class="toolbar-btn stop" title="Stop recording">
+          <span class="stop-square"></span>
+        </button>
+      </div>
+    </div>
+
+    <script src="../dist/renderer/toolbar/index.js"></script>
+  </body>
+</html>
