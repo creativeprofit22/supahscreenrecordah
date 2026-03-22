@@ -10,6 +10,8 @@ import {
 } from './dom';
 import { startZoomLoop } from './zoom';
 import { startWaveformCapture, getSavedMicDeviceIdForRestart, clearSavedMicDeviceIdForRestart } from './overlays/waveform';
+import { getPauseCutPoints } from './recording';
+import type { PauseTimestamp } from '../../shared/types';
 
 // ---------------------------------------------------------------------------
 // State
@@ -17,6 +19,7 @@ import { startWaveformCapture, getSavedMicDeviceIdForRestart, clearSavedMicDevic
 
 let pendingRecordingBlob: Blob | null = null;
 let playbackBlobUrl: string | null = null;
+let pendingPauseTimestamps: PauseTimestamp[] = [];
 
 // ---------------------------------------------------------------------------
 // Enter / exit playback mode
@@ -25,6 +28,13 @@ let playbackBlobUrl: string | null = null;
 export async function enterPlaybackMode(blob: Blob): Promise<void> {
   console.log('[rec] enterPlaybackMode — blob size:', blob.size, 'type:', blob.type);
   pendingRecordingBlob = blob;
+
+  // Snapshot pause cut points from the just-finished recording session
+  const cutPoints = getPauseCutPoints();
+  pendingPauseTimestamps = cutPoints.map((cutPoint) => ({ cutPoint }));
+  if (pendingPauseTimestamps.length > 0) {
+    console.log('[rec] Pause cut points:', cutPoints.map((t) => t.toFixed(3) + 's').join(', '));
+  }
 
   // Show processing indicator
   previewContainer.style.display = 'none';
@@ -126,7 +136,11 @@ export function initPlaybackHandlers(): void {
         processingSub.textContent = 'Writing recording data...';
         const arrayBuffer = await pendingRecordingBlob.arrayBuffer();
         processingSub.textContent = 'Enhancing audio and finalizing...';
-        await window.mainAPI.saveRecording(filePath, arrayBuffer);
+        await window.mainAPI.saveRecording(
+          filePath,
+          arrayBuffer,
+          pendingPauseTimestamps.length > 0 ? pendingPauseTimestamps : undefined,
+        );
         console.log('[rec] Export complete:', filePath);
       } catch (err) {
         console.error('Failed to export recording:', err);

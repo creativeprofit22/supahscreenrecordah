@@ -1,6 +1,12 @@
 // Click-to-zoom — spring-based for smooth, interruptible zoom transitions.
 // Includes zoom preview animation loop, background canvas sizing, and
 // standalone particle loop for when no screen capture is active.
+//
+// Smart zoom enhancements (opt-in via activeSmartZoom):
+// - Click cluster detection: sustained zoom on repeated clicks in a small area
+// - Cursor velocity analysis: suppress zoom during fast movement, auto-zoom on stop
+// - Adaptive spring configs: stiff springs for fast motion, soft for focus areas
+// - Smart edge boundaries: reduced zoom near screen edges to avoid empty space
 
 import {
   createSpringState, stepSpring, setSpringTarget,
@@ -10,6 +16,7 @@ import {
 import {
   screenStream,
   smoothMouseX, smoothMouseY,
+  currentMouseX, currentMouseY,
   capturedBounds,
   currentZoom,
   isMouseHeld, setIsMouseHeld,
@@ -18,9 +25,13 @@ import {
   activeClickZoomMin, activeClickZoomMax,
   setActiveClickZoomMin, setActiveClickZoomMax,
   zoomLingerTime, setZoomLingerTime,
+  activeSpotlight,
+  activeSmartZoom,
+  isCapturingWindow,
 } from './state';
 import { screenVideo, bgCanvas, bgCtx, previewContainer } from './dom';
 import { updateSmoothMouse } from './overlays/cursor';
+import { updatePreviewSpotlight } from './overlays/spotlight';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -31,6 +42,43 @@ const BASE_ZOOM = 1.0; // Long-form default: show full screen
 
 /** Clicks within this window are coalesced (double/triple-click, etc.) */
 const CLICK_DEBOUNCE_MS = 400;
+
+// ---------------------------------------------------------------------------
+// Smart zoom constants
+// ---------------------------------------------------------------------------
+
+/** Sliding window duration for click cluster detection (ms) */
+const CLUSTER_WINDOW_MS = 5000;
+
+/** Minimum clicks within window to trigger a cluster zoom */
+const CLUSTER_MIN_CLICKS = 3;
+
+/** Maximum spatial spread (px) for clicks to be considered a cluster */
+const CLUSTER_RADIUS_PX = 200;
+
+/** Distance cursor must travel from cluster center before cluster zoom releases */
+const CLUSTER_RELEASE_DISTANCE_PX = 300;
+
+/** Zoom multiplier applied on top of dynamic zoom for cluster focus */
+const CLUSTER_ZOOM_BOOST = 1.25;
+
+/** Cursor velocity threshold (px/frame at 60fps) — below this, cursor is "slow" */
+const VELOCITY_SLOW_THRESHOLD = 2.0;
+
+/** How long cursor must be slow before auto-zoom triggers (ms) */
+const VELOCITY_SETTLE_MS = 500;
+
+/** Easing zone — ignore cursor stop for this duration to prevent micro-zooms (ms) */
+const EASING_ZONE_MS = 200;
+
+/** Screen edge fraction (0-1) — zoom is reduced when cursor is in this margin */
+const EDGE_MARGIN_FRACTION = 0.10;
+
+/** How much to reduce zoom at screen edges (multiplier, 0-1) */
+const EDGE_ZOOM_REDUCTION = 0.6;
+
+/** Title bar height estimate (px) for window captures — zoom is reduced here */
+const TITLE_BAR_HEIGHT_PX = 30;
 
 // ---------------------------------------------------------------------------
 // Spring state
@@ -52,6 +100,20 @@ const ZOOM_OUT_SPRING: SpringConfig = {
   mass: 1,
 };
 
+/** Smart zoom: soft spring for gentle focus zoom-in (slow cursor / cluster) */
+const SMART_ZOOM_IN_SPRING: SpringConfig = {
+  stiffness: 100, // Gentle, gradual
+  damping: 20,     // Slightly underdamped for organic feel
+  mass: 1.2,
+};
+
+/** Smart zoom: stiff spring for quick zoom-out during fast cursor movement */
+const SMART_ZOOM_OUT_SPRING: SpringConfig = {
+  stiffness: 280, // Very stiff — snap out fast
+  damping: 30,     // Overdamped — no bounce
+  mass: 0.8,
+};
+
 /** Track which spring config is active (changes based on zoom direction) */
 export let activeSpringConfig: SpringConfig = DEFAULT_SPRING_CONFIG;
 
@@ -61,6 +123,46 @@ export let activeSpringConfig: SpringConfig = DEFAULT_SPRING_CONFIG;
 
 let zoomAnimFrame = 0;
 let lastBgParticleTime = performance.now();
+
+// ---------------------------------------------------------------------------
+// Smart zoom: click cluster tracking
+// ---------------------------------------------------------------------------
+
+interface ClickRecord {
+  time: number;
+  x: number; // screen coordinates
+  y: number;
+}
+
+/** Sliding window of recent clicks */
+let recentClicks: ClickRecord[] = [];
+
+/** Active cluster center (screen coords), null if no cluster is active */
+let clusterCenter: { x: number; y: number } | null = null;
+
+/** Whether a cluster zoom is currently being held */
+let clusterZoomActive = false;
+
+// ---------------------------------------------------------------------------
+// Smart zoom: cursor velocity tracking
+// ---------------------------------------------------------------------------
+
+/** Previous cursor position for velocity calculation */
+let prevMouseX = 0;
+let prevMouseY = 0;
+let prevVelocityTime = performance.now();
+
+/** Exponentially smoothed cursor velocity (px/frame at 60fps equivalent) */
+let cursorVelocity = 0;
+
+/** Timestamp when cursor velocity first dropped below threshold */
+let velocitySlowSince = 0;
+
+/** Whether the auto-zoom from velocity has been triggered for this stop */
+let velocityZoomTriggered = false;
+
+/** Whether cursor is currently considered "fast-moving" */
+let cursorIsFast = false;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -133,31 +235,284 @@ function calculateDynamicZoom(relX: number, relY: number): number {
   // Minimum distance to any edge
   const minDist = Math.min(distLeft, distRight, distTop, distBottom);
 
-  // Calculate zoom needed to keep mouse at least VIEWPORT_MARGIN from viewport edge
-  // With zoom Z, viewport shows 1/Z of content
-  // To have mouse at position M (0-1) in viewport: we need zoom such that
-  // the smaller of M and (1-M) is >= VIEWPORT_MARGIN
-  //
-  // For edge case: if mouse is at 0% and we want it at 15% in viewport,
-  // the viewport must start before the content edge - but that's clamped.
-  // With clamping, higher zoom = mouse appears further from viewport edge.
-  //
-  // Formula: zoom needed = 1 / (2 * minDist + 2 * VIEWPORT_MARGIN)
-  // This ensures that after clamping, mouse has adequate margin
-
-  // Scale minDist to account for desired margin
-  // At edge (minDist=0): we need max zoom to push mouse toward center
-  // At center (minDist=0.5): min zoom is fine, mouse is naturally centered
-
   // Inverse relationship: closer to edge = higher zoom needed
   const edgeProximity = 1 - Math.min(1, minDist * 2); // 1 at edge, 0 at center
 
   // Interpolate: edge = max zoom, center = min zoom (user-configurable)
-  const dynamicZoom =
+  let dynamicZoom =
     activeClickZoomMin + (activeClickZoomMax - activeClickZoomMin) * edgeProximity;
+
+  // Smart zoom: apply edge boundary reduction
+  if (activeSmartZoom) {
+    dynamicZoom = applyEdgeBoundaryReduction(relX, relY, dynamicZoom);
+  }
 
   // Hard cap — even the highest user setting can't exceed 3.0x
   return Math.min(dynamicZoom, 3.0);
+}
+
+// ---------------------------------------------------------------------------
+// Smart zoom: edge boundary reduction
+// ---------------------------------------------------------------------------
+
+/**
+ * Reduce zoom when cursor is near screen edges to avoid showing empty space.
+ * Also reduces zoom in the title bar area for window captures.
+ */
+function applyEdgeBoundaryReduction(relX: number, relY: number, zoom: number): number {
+  // Calculate how deep into the edge margin the cursor is (0 = not in margin, 1 = at edge)
+  const edgeDepthLeft = Math.max(0, 1 - relX / EDGE_MARGIN_FRACTION);
+  const edgeDepthRight = Math.max(0, 1 - (1 - relX) / EDGE_MARGIN_FRACTION);
+  const edgeDepthTop = Math.max(0, 1 - relY / EDGE_MARGIN_FRACTION);
+  const edgeDepthBottom = Math.max(0, 1 - (1 - relY) / EDGE_MARGIN_FRACTION);
+
+  const maxEdgeDepth = Math.max(edgeDepthLeft, edgeDepthRight, edgeDepthTop, edgeDepthBottom);
+
+  if (maxEdgeDepth > 0) {
+    // Lerp between full zoom and reduced zoom based on edge depth
+    const reduction = 1 - maxEdgeDepth * (1 - EDGE_ZOOM_REDUCTION);
+    zoom = BASE_ZOOM + (zoom - BASE_ZOOM) * reduction;
+  }
+
+  // For window captures, reduce zoom in the title bar region
+  if (isCapturingWindow && capturedBounds.height > 0) {
+    const titleBarFraction = TITLE_BAR_HEIGHT_PX / capturedBounds.height;
+    if (relY < titleBarFraction) {
+      const titleBarDepth = 1 - relY / titleBarFraction;
+      const titleReduction = 1 - titleBarDepth * (1 - EDGE_ZOOM_REDUCTION);
+      zoom = BASE_ZOOM + (zoom - BASE_ZOOM) * titleReduction;
+    }
+  }
+
+  return zoom;
+}
+
+// ---------------------------------------------------------------------------
+// Smart zoom: click cluster detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Record a click and check if a cluster has formed.
+ * Prunes old clicks outside the sliding window.
+ */
+function recordClick(x: number, y: number): void {
+  const now = performance.now();
+
+  // Add this click
+  recentClicks.push({ time: now, x, y });
+
+  // Prune clicks outside the sliding window
+  recentClicks = recentClicks.filter(c => now - c.time <= CLUSTER_WINDOW_MS);
+
+  // Check for cluster: find if CLUSTER_MIN_CLICKS clicks are within CLUSTER_RADIUS_PX
+  if (recentClicks.length >= CLUSTER_MIN_CLICKS) {
+    detectCluster();
+  }
+}
+
+/**
+ * Scan recent clicks for spatial clustering using a simple bounding-box check.
+ * If a cluster is found, activates cluster zoom centered on the cluster.
+ */
+function detectCluster(): void {
+  const n = recentClicks.length;
+
+  // Try all subsets of size CLUSTER_MIN_CLICKS from the most recent clicks
+  // For efficiency, just check the last CLUSTER_MIN_CLICKS clicks
+  for (let start = Math.max(0, n - CLUSTER_MIN_CLICKS - 2); start <= n - CLUSTER_MIN_CLICKS; start++) {
+    const subset = recentClicks.slice(start);
+
+    // Calculate centroid
+    let sumX = 0;
+    let sumY = 0;
+    for (const c of subset) {
+      sumX += c.x;
+      sumY += c.y;
+    }
+    const cx = sumX / subset.length;
+    const cy = sumY / subset.length;
+
+    // Check all clicks are within radius of centroid
+    let allWithin = true;
+    for (const c of subset) {
+      const dx = c.x - cx;
+      const dy = c.y - cy;
+      if (Math.sqrt(dx * dx + dy * dy) > CLUSTER_RADIUS_PX) {
+        allWithin = false;
+        break;
+      }
+    }
+
+    if (allWithin) {
+      clusterCenter = { x: cx, y: cy };
+      clusterZoomActive = true;
+      return;
+    }
+  }
+}
+
+/**
+ * Check if cursor has moved far enough from cluster center to release the cluster zoom.
+ */
+function checkClusterRelease(): boolean {
+  if (!clusterCenter) return false;
+
+  const dx = currentMouseX - clusterCenter.x;
+  const dy = currentMouseY - clusterCenter.y;
+  return Math.sqrt(dx * dx + dy * dy) > CLUSTER_RELEASE_DISTANCE_PX;
+}
+
+/**
+ * Release the active cluster zoom.
+ */
+function releaseCluster(): void {
+  clusterZoomActive = false;
+  clusterCenter = null;
+}
+
+// ---------------------------------------------------------------------------
+// Smart zoom: cursor velocity tracking
+// ---------------------------------------------------------------------------
+
+/**
+ * Update cursor velocity. Called every frame from the render loop.
+ * Uses exponential smoothing for stable velocity estimation.
+ */
+function updateCursorVelocity(): void {
+  const now = performance.now();
+  const dt = now - prevVelocityTime;
+  prevVelocityTime = now;
+
+  if (dt <= 0) return;
+
+  // Calculate raw velocity in px/frame (normalized to 60fps)
+  const dx = currentMouseX - prevMouseX;
+  const dy = currentMouseY - prevMouseY;
+  const rawDistance = Math.sqrt(dx * dx + dy * dy);
+  const normalizedVelocity = rawDistance / (dt / 16.667); // normalize to 60fps frame
+
+  prevMouseX = currentMouseX;
+  prevMouseY = currentMouseY;
+
+  // Exponential smoothing (α = 0.3 for responsiveness)
+  cursorVelocity = cursorVelocity * 0.7 + normalizedVelocity * 0.3;
+
+  const wasFast = cursorIsFast;
+
+  if (cursorVelocity > VELOCITY_SLOW_THRESHOLD * 2) {
+    // Cursor is moving fast — mark as fast, reset settle timer
+    cursorIsFast = true;
+    velocitySlowSince = 0;
+    velocityZoomTriggered = false;
+  } else if (cursorVelocity < VELOCITY_SLOW_THRESHOLD) {
+    // Cursor is slow
+    cursorIsFast = false;
+    if (velocitySlowSince === 0) {
+      velocitySlowSince = now;
+    }
+  }
+
+  // If cursor was fast and just became slow, trigger zoom-out quickly
+  if (wasFast && !cursorIsFast && currentZoom > BASE_ZOOM) {
+    // Don't immediately zoom out — the easing zone handles the delay
+  }
+
+  // Auto-zoom on cursor stop (only if no click-based zoom is active)
+  if (
+    !velocityZoomTriggered &&
+    !cursorIsFast &&
+    velocitySlowSince > 0 &&
+    !isMouseHeld &&
+    !clusterZoomActive
+  ) {
+    const settledDuration = now - velocitySlowSince;
+
+    if (settledDuration > EASING_ZONE_MS + VELOCITY_SETTLE_MS) {
+      // Cursor has been still long enough — trigger gentle auto-zoom
+      velocityZoomTriggered = true;
+      triggerVelocityAutoZoom();
+    }
+  }
+}
+
+/**
+ * Trigger a gentle auto-zoom to the current cursor position.
+ * Uses a soft spring config for a subtle, non-jarring zoom.
+ */
+function triggerVelocityAutoZoom(): void {
+  const relPos = getMouseRelativeToCaptured();
+  if (!relPos) return;
+
+  const dynamicZoom = calculateDynamicZoom(relPos.relX, relPos.relY);
+
+  // Use a reduced zoom for velocity-based auto-zoom (less aggressive than click)
+  const autoZoom = BASE_ZOOM + (dynamicZoom - BASE_ZOOM) * 0.6;
+
+  activeSpringConfig = SMART_ZOOM_IN_SPRING;
+  setSpringTarget(zoomSpring, autoZoom);
+
+  // Set a timeout to zoom back out after the linger period
+  if (zoomOutTimeout) {
+    clearTimeout(zoomOutTimeout);
+  }
+  const timeout = setTimeout(() => {
+    if (!isMouseHeld && !clusterZoomActive) {
+      activeSpringConfig = ZOOM_OUT_SPRING;
+      setSpringTarget(zoomSpring, BASE_ZOOM);
+    }
+    setZoomOutTimeout(null);
+  }, zoomLingerTime);
+  setZoomOutTimeout(timeout);
+}
+
+// ---------------------------------------------------------------------------
+// Smart zoom: per-frame update (called from render loop)
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-frame smart zoom logic. Handles:
+ * - Cursor velocity tracking and auto-zoom
+ * - Cluster zoom hold/release
+ * - Fast-movement zoom suppression
+ */
+function updateSmartZoom(): void {
+  if (!activeSmartZoom) return;
+
+  // Update velocity tracking
+  updateCursorVelocity();
+
+  // If cursor is moving fast and we're zoomed in (not from a cluster), zoom out quickly
+  if (cursorIsFast && currentZoom > BASE_ZOOM && !clusterZoomActive && !isMouseHeld) {
+    activeSpringConfig = SMART_ZOOM_OUT_SPRING;
+    setSpringTarget(zoomSpring, BASE_ZOOM);
+
+    // Cancel any pending zoom-out timeout
+    if (zoomOutTimeout) {
+      clearTimeout(zoomOutTimeout);
+      setZoomOutTimeout(null);
+    }
+  }
+
+  // Check cluster release
+  if (clusterZoomActive && checkClusterRelease()) {
+    releaseCluster();
+
+    // Zoom out after cluster release (unless mouse is held from a new click)
+    if (!isMouseHeld) {
+      activeSpringConfig = ZOOM_OUT_SPRING;
+      setSpringTarget(zoomSpring, BASE_ZOOM);
+    }
+  }
+
+  // If cluster is active, keep zoom target refreshed (cursor may have moved within cluster)
+  if (clusterZoomActive && clusterCenter) {
+    const relPos = getMouseRelativeToCaptured();
+    if (relPos) {
+      const baseZoom = calculateDynamicZoom(relPos.relX, relPos.relY);
+      const boostedZoom = Math.min(baseZoom * CLUSTER_ZOOM_BOOST, 3.0);
+      setSpringTarget(zoomSpring, boostedZoom);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -175,6 +530,19 @@ export function onMouseDown(): void {
 
   setIsMouseHeld(true);
 
+  // Smart zoom: suppress zoom-in if cursor is moving fast
+  if (activeSmartZoom && cursorIsFast) {
+    setLastClickDownTime(now);
+    // Record the click for cluster detection even if zoom is suppressed
+    recordClick(currentMouseX, currentMouseY);
+    return;
+  }
+
+  // Smart zoom: record click for cluster detection
+  if (activeSmartZoom) {
+    recordClick(currentMouseX, currentMouseY);
+  }
+
   // Debounce rapid clicks: if this click arrives within CLICK_DEBOUNCE_MS of the
   // last one, treat it as a continuation (e.g. double/triple-click to select text).
   // The zoom stays in — we just update the target position smoothly.
@@ -187,10 +555,21 @@ export function onMouseDown(): void {
     return;
   }
 
-  const dynamicZoom = calculateDynamicZoom(relPos.relX, relPos.relY);
+  let dynamicZoom = calculateDynamicZoom(relPos.relX, relPos.relY);
 
-  // Use snappy spring for zoom-in
-  activeSpringConfig = ZOOM_IN_SPRING;
+  // Smart zoom: apply cluster boost if cluster is active
+  if (activeSmartZoom && clusterZoomActive) {
+    dynamicZoom = Math.min(dynamicZoom * CLUSTER_ZOOM_BOOST, 3.0);
+  }
+
+  // Use appropriate spring config
+  if (activeSmartZoom && clusterZoomActive) {
+    // Soft spring for cluster focus — gentle, sustained
+    activeSpringConfig = SMART_ZOOM_IN_SPRING;
+  } else {
+    // Standard snappy spring for click zoom-in
+    activeSpringConfig = ZOOM_IN_SPRING;
+  }
 
   if (isRapidClick && currentZoom > BASE_ZOOM) {
     // Already zoomed — just smoothly update target (pan effect while zoomed)
@@ -204,6 +583,11 @@ export function onMouseDown(): void {
 export function onMouseUp(): void {
   setIsMouseHeld(false);
 
+  // Smart zoom: if cluster is active, don't start zoom-out timer — hold the zoom
+  if (activeSmartZoom && clusterZoomActive) {
+    return;
+  }
+
   if (zoomOutTimeout) {
     clearTimeout(zoomOutTimeout);
   }
@@ -211,6 +595,11 @@ export function onMouseUp(): void {
   const timeout = setTimeout(() => {
     // Only zoom out if mouse is not being held (user may have clicked again)
     if (!isMouseHeld) {
+      // Smart zoom: don't zoom out if a cluster is now active
+      if (activeSmartZoom && clusterZoomActive) {
+        setZoomOutTimeout(null);
+        return;
+      }
       // Use gentle spring for zoom-out (slower, less jarring)
       activeSpringConfig = ZOOM_OUT_SPRING;
       setSpringTarget(zoomSpring, BASE_ZOOM);
@@ -306,8 +695,18 @@ export function setDrawPreviewBackground(fn: () => void): void {
 
 function zoomRenderLoop(): void {
   updateSmoothMouse();
+  updateSmartZoom();
   applyScreenZoomTransform();
   getDrawPreviewBackground()();
+
+  // Update preview spotlight overlay position (uses relative mouse coords)
+  if (activeSpotlight) {
+    const relPos = getMouseRelativeToCaptured();
+    if (relPos) {
+      updatePreviewSpotlight(relPos.relX, relPos.relY);
+    }
+  }
+
   zoomAnimFrame = requestAnimationFrame(zoomRenderLoop);
 }
 
@@ -315,6 +714,15 @@ export function startZoomLoop(): void {
   if (zoomAnimFrame) {
     return;
   }
+  // Initialize velocity tracking state
+  prevMouseX = currentMouseX;
+  prevMouseY = currentMouseY;
+  prevVelocityTime = performance.now();
+  cursorVelocity = 0;
+  velocitySlowSince = 0;
+  velocityZoomTriggered = false;
+  cursorIsFast = false;
+
   zoomAnimFrame = requestAnimationFrame(zoomRenderLoop);
 }
 
@@ -323,6 +731,14 @@ export function stopZoomLoop(): void {
     cancelAnimationFrame(zoomAnimFrame);
     zoomAnimFrame = 0;
   }
+  // Reset smart zoom state
+  recentClicks = [];
+  clusterCenter = null;
+  clusterZoomActive = false;
+  cursorVelocity = 0;
+  velocitySlowSince = 0;
+  velocityZoomTriggered = false;
+  cursorIsFast = false;
 }
 
 // ---------------------------------------------------------------------------
@@ -383,6 +799,16 @@ export function getZoomSpring(): SpringState {
 
 export function isZoomLoopRunning(): boolean {
   return zoomAnimFrame !== 0;
+}
+
+/** Check if a click cluster zoom is currently active */
+export function isClusterZoomActive(): boolean {
+  return clusterZoomActive;
+}
+
+/** Get the current smoothed cursor velocity (px/frame at 60fps) */
+export function getCursorVelocity(): number {
+  return cursorVelocity;
 }
 
 export { zoomSpring, MOUSE_ZOOM_DEFAULT, BASE_ZOOM };

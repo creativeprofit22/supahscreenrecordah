@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
     />
     <title>supahscreenrecordah — Edit Overlay</title>
     <link rel="stylesheet" href="../dist/renderer/styles/edit-modal.css" />
@@ -275,6 +275,235 @@
                 <span id="zoom-linger-val" class="slider-value">2.5s</span>
               </div>
             </div>
+
+            <div class="field-group">
+              <label class="field-label">Progress Bar</label>
+              <label class="toggle-row">
+                <input id="progress-bar-toggle" type="checkbox" class="field-checkbox" />
+                <span class="toggle-label">Show progress bar</span>
+              </label>
+              <div id="progress-bar-options" class="sub-options" style="display: none">
+                <div class="radio-row">
+                  <label class="radio-label">
+                    <input type="radio" name="progress-bar-position" value="top" class="field-radio" />
+                    <span>Top</span>
+                  </label>
+                  <label class="radio-label">
+                    <input type="radio" name="progress-bar-position" value="bottom" class="field-radio" checked />
+                    <span>Bottom</span>
+                  </label>
+                </div>
+                <div class="field-row">
+                  <label class="field-label-sm">Color</label>
+                  <input id="progress-bar-color" type="color" class="field-color" value="#ffffff" />
+                </div>
+                <div class="slider-row">
+                  <label class="field-label-sm">Height</label>
+                  <input
+                    id="progress-bar-height"
+                    type="range"
+                    class="field-slider"
+                    min="2"
+                    max="6"
+                    step="1"
+                    value="4"
+                  />
+                  <span id="progress-bar-height-val" class="slider-value">4px</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Watermark</label>
+              <label class="toggle-row">
+                <input id="watermark-toggle" type="checkbox" class="field-checkbox" />
+                <span class="toggle-label">Show watermark</span>
+              </label>
+              <div id="watermark-options" class="sub-options" style="display: none">
+                <div class="field-row">
+                  <button id="watermark-file-btn" class="field-btn" type="button">Select Image…</button>
+                  <span id="watermark-file-name" class="slider-value" style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">No file selected</span>
+                </div>
+                <div class="field-group" style="margin-top: 6px;">
+                  <label class="field-label-sm">Position</label>
+                  <div class="radio-row">
+                    <label class="radio-label">
+                      <input type="radio" name="watermark-position" value="top-left" class="field-radio" />
+                      <span>↖</span>
+                    </label>
+                    <label class="radio-label">
+                      <input type="radio" name="watermark-position" value="top-right" class="field-radio" />
+                      <span>↗</span>
+                    </label>
+                    <label class="radio-label">
+                      <input type="radio" name="watermark-position" value="bottom-left" class="field-radio" />
+                      <span>↙</span>
+                    </label>
+                    <label class="radio-label">
+                      <input type="radio" name="watermark-position" value="bottom-right" class="field-radio" checked />
+                      <span>↘</span>
+                    </label>
+                  </div>
+                </div>
+                <div class="slider-row">
+                  <label class="field-label-sm">Opacity</label>
+                  <input
+                    id="watermark-opacity"
+                    type="range"
+                    class="field-slider"
+                    min="0.1"
+                    max="1"
+                    step="0.05"
+                    value="0.7"
+                  />
+                  <span id="watermark-opacity-val" class="slider-value">70%</span>
+                </div>
+                <div class="slider-row">
+                  <label class="field-label-sm">Size</label>
+                  <input
+                    id="watermark-size"
+                    type="range"
+                    class="field-slider"
+                    min="5"
+                    max="20"
+                    step="1"
+                    value="10"
+                  />
+                  <span id="watermark-size-val" class="slider-value">10%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Silence Removal section (after watermark, before socials) -->
+          <div class="modal-col">
+            <div class="field-group">
+              <label class="field-label">Silence Removal</label>
+              <label class="toggle-row">
+                <input id="silence-removal-toggle" type="checkbox" class="field-checkbox" />
+                <span class="toggle-label">Remove silences</span>
+              </label>
+              <div id="silence-removal-options" class="sub-options" style="display: none">
+                <div class="slider-row">
+                  <label class="field-label-sm">Min Silence</label>
+                  <input
+                    id="silence-min-duration"
+                    type="range"
+                    class="field-slider"
+                    min="500"
+                    max="3000"
+                    step="100"
+                    value="1500"
+                  />
+                  <span id="silence-min-duration-val" class="slider-value">1.5s</span>
+                </div>
+                <label class="toggle-row" style="margin-top: 6px;">
+                  <input id="silence-filler-toggle" type="checkbox" class="field-checkbox" />
+                  <span class="toggle-label">Remove filler words (um, uh, like…)</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Intro & Outro -->
+            <div class="field-group">
+              <label class="field-label">Intro</label>
+              <label class="toggle-row">
+                <input id="intro-toggle" type="checkbox" class="field-checkbox" />
+                <span class="toggle-label">Enable intro</span>
+              </label>
+              <div id="intro-options" class="sub-options" style="display: none">
+                <div class="field-row" style="margin-top: 4px;">
+                  <label class="field-label-sm">Template</label>
+                  <select id="intro-template" class="field-select">
+                    <option value="fade-title">Fade Title</option>
+                    <option value="slide-in">Slide In</option>
+                    <option value="zoom-burst">Zoom Burst</option>
+                    <option value="minimal">Minimal</option>
+                  </select>
+                </div>
+                <div class="field-row" style="margin-top: 4px;">
+                  <input
+                    id="intro-text"
+                    type="text"
+                    class="field-input"
+                    placeholder="Main text"
+                    maxlength="50"
+                  />
+                </div>
+                <div class="field-row" style="margin-top: 4px;">
+                  <input
+                    id="intro-subtext"
+                    type="text"
+                    class="field-input"
+                    placeholder="Subtext"
+                    maxlength="50"
+                  />
+                </div>
+                <div class="slider-row">
+                  <label class="field-label-sm">Duration</label>
+                  <input
+                    id="intro-duration"
+                    type="range"
+                    class="field-slider"
+                    min="3"
+                    max="5"
+                    step="0.5"
+                    value="3"
+                  />
+                  <span id="intro-duration-val" class="slider-value">3s</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Outro</label>
+              <label class="toggle-row">
+                <input id="outro-toggle" type="checkbox" class="field-checkbox" />
+                <span class="toggle-label">Enable outro</span>
+              </label>
+              <div id="outro-options" class="sub-options" style="display: none">
+                <div class="field-row" style="margin-top: 4px;">
+                  <label class="field-label-sm">Template</label>
+                  <select id="outro-template" class="field-select">
+                    <option value="fade-title">Fade Title</option>
+                    <option value="slide-in">Slide In</option>
+                    <option value="zoom-burst">Zoom Burst</option>
+                    <option value="minimal">Minimal</option>
+                  </select>
+                </div>
+                <div class="field-row" style="margin-top: 4px;">
+                  <input
+                    id="outro-text"
+                    type="text"
+                    class="field-input"
+                    placeholder="Main text"
+                    maxlength="50"
+                  />
+                </div>
+                <div class="field-row" style="margin-top: 4px;">
+                  <input
+                    id="outro-subtext"
+                    type="text"
+                    class="field-input"
+                    placeholder="Subtext"
+                    maxlength="50"
+                  />
+                </div>
+                <div class="slider-row">
+                  <label class="field-label-sm">Duration</label>
+                  <input
+                    id="outro-duration"
+                    type="range"
+                    class="field-slider"
+                    min="3"
+                    max="5"
+                    step="0.5"
+                    value="3"
+                  />
+                  <span id="outro-duration-val" class="slider-value">3s</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Socials column -->
@@ -450,6 +679,45 @@
                 <span id="cam-softness-val" class="slider-value">0</span>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Export Platforms -->
+        <div class="field-group export-platforms-section" style="margin-top: 12px; padding: 0 8px;">
+          <label class="field-label">Export Platforms</label>
+          <div id="export-platforms-grid" class="export-platforms-grid">
+            <label class="platform-chip">
+              <input type="checkbox" value="youtube" class="platform-checkbox" />
+              <span class="chip-label">YouTube</span>
+            </label>
+            <label class="platform-chip">
+              <input type="checkbox" value="youtube-shorts" class="platform-checkbox" />
+              <span class="chip-label">YouTube Shorts</span>
+            </label>
+            <label class="platform-chip">
+              <input type="checkbox" value="tiktok" class="platform-checkbox" />
+              <span class="chip-label">TikTok</span>
+            </label>
+            <label class="platform-chip">
+              <input type="checkbox" value="instagram-reels" class="platform-checkbox" />
+              <span class="chip-label">Instagram Reels</span>
+            </label>
+            <label class="platform-chip">
+              <input type="checkbox" value="instagram-feed" class="platform-checkbox" />
+              <span class="chip-label">Instagram Feed</span>
+            </label>
+            <label class="platform-chip">
+              <input type="checkbox" value="twitter" class="platform-checkbox" />
+              <span class="chip-label">Twitter/X</span>
+            </label>
+            <label class="platform-chip">
+              <input type="checkbox" value="linkedin" class="platform-checkbox" />
+              <span class="chip-label">LinkedIn</span>
+            </label>
+            <label class="platform-chip">
+              <input type="checkbox" value="custom" class="platform-checkbox" />
+              <span class="chip-label">Custom</span>
+            </label>
           </div>
         </div>
       </div>

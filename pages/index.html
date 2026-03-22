@@ -3,9 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- file: needed in media-src (playback.ts) and img-src (watermark.ts) — ideally migrate to app:// protocol -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; media-src 'self' blob: mediastream: file:; img-src 'self' data: blob:; connect-src 'self'"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; media-src 'self' blob: mediastream: file:; img-src 'self' data: blob: file:; connect-src 'self' https://cdn.jsdelivr.net https://storage.googleapis.com; object-src 'none'; base-uri 'self'; form-action 'self'"
     />
     <title>supahscreenrecordah — Preview</title>
     <link rel="stylesheet" href="../dist/renderer/styles/main.css" />

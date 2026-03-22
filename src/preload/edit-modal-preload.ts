@@ -11,6 +11,10 @@ const editModalAPI: EditModalAPI = {
     ipcRenderer.send(Channels.EDIT_MODAL_SAVE, data);
   },
 
+  saveConfig: (partial) => {
+    ipcRenderer.send(Channels.CONFIG_SAVE, partial);
+  },
+
   previewOverlay: (data) => {
     ipcRenderer.send(Channels.OVERLAY_PREVIEW, data);
   },
@@ -20,6 +24,10 @@ const editModalAPI: EditModalAPI = {
   },
 
   getConfig: () => ipcRenderer.invoke(Channels.CONFIG_GET),
+
+  selectWatermarkFile: () => ipcRenderer.invoke(Channels.WATERMARK_SELECT_FILE),
+
+  setExportPlatforms: (platforms) => ipcRenderer.invoke(Channels.EXPORT_PLATFORMS, platforms),
 };
 
 contextBridge.exposeInMainWorld('editModalAPI', editModalAPI);

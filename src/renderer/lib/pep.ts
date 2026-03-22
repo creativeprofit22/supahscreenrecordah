@@ -1,5 +1,5 @@
 // Global button click sound effect
-const audio = new Audio('assets/pep.mp3');
+const audio = new Audio('../assets/pep.mp3');
 audio.volume = 0.5;
 
 const INTERACTIVE_CLASSES = [

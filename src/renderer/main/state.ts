@@ -1,4 +1,4 @@
-import type { CameraEnhancement } from '../../shared/types';
+import type { CameraEnhancement, BlurRegion, AspectRatio, CursorEffectConfig, WatermarkConfig } from '../../shared/types';
 
 // ---------------------------------------------------------------------------
 // Layout & stream state
@@ -57,6 +57,74 @@ export let lastClickDownTime = 0;
 export let isMouseHeld = false;
 
 // ---------------------------------------------------------------------------
+// Smart zoom state
+// ---------------------------------------------------------------------------
+export let activeSmartZoom = false;
+
+// ---------------------------------------------------------------------------
+// Blur region state
+// ---------------------------------------------------------------------------
+export let activeBlurRegions: BlurRegion[] = [];
+export let blurModeActive = false;
+
+// ---------------------------------------------------------------------------
+// Aspect ratio state
+// ---------------------------------------------------------------------------
+export let activeAspectRatio: AspectRatio = '16:9';
+
+// ---------------------------------------------------------------------------
+// Perspective tilt state
+// ---------------------------------------------------------------------------
+export let activePerspective = false;
+export let activePerspectiveIntensity = 2; // degrees, 1–5 range, default 2
+
+// ---------------------------------------------------------------------------
+// Spotlight state
+// ---------------------------------------------------------------------------
+export let activeSpotlight = false;
+
+// ---------------------------------------------------------------------------
+// Webcam blur state
+// ---------------------------------------------------------------------------
+export let activeWebcamBlur = false;
+export let activeWebcamBlurIntensity = 30;
+
+// ---------------------------------------------------------------------------
+// Cursor effect state
+// ---------------------------------------------------------------------------
+export let activeCursorEffect: CursorEffectConfig = {
+  trail: 'none',
+  clickRipple: false,
+  clickRippleColor: '#ffffff',
+};
+
+// ---------------------------------------------------------------------------
+// Click sounds state
+// ---------------------------------------------------------------------------
+export let activeClickSounds = false;
+
+// ---------------------------------------------------------------------------
+// Audio ducking state
+// ---------------------------------------------------------------------------
+export let activeAudioDucking = false;
+
+// ---------------------------------------------------------------------------
+// Watermark state
+// ---------------------------------------------------------------------------
+export let activeWatermark: WatermarkConfig = {
+  enabled: false,
+  imagePath: '',
+  position: 'bottom-right',
+  opacity: 0.7,
+  size: 10,
+};
+
+// ---------------------------------------------------------------------------
+// Countdown state
+// ---------------------------------------------------------------------------
+export let countdownEnabled = true;
+
+// ---------------------------------------------------------------------------
 // Mic state
 // ---------------------------------------------------------------------------
 export let currentMicDeviceId: string | null = null;
@@ -111,6 +179,42 @@ export function setZoomOutTimeout(t: ReturnType<typeof setTimeout> | null): void
 export function setZoomLingerTime(ms: number): void { zoomLingerTime = ms; }
 export function setLastClickDownTime(t: number): void { lastClickDownTime = t; }
 export function setIsMouseHeld(v: boolean): void { isMouseHeld = v; }
+
+// Smart zoom
+export function setActiveSmartZoom(v: boolean): void { activeSmartZoom = v; }
+
+// Blur regions
+export function setActiveBlurRegions(regions: BlurRegion[]): void { activeBlurRegions = regions; }
+export function setBlurModeActive(v: boolean): void { blurModeActive = v; }
+
+// Aspect ratio
+export function setActiveAspectRatio(r: AspectRatio): void { activeAspectRatio = r; }
+
+// Perspective tilt
+export function setActivePerspective(v: boolean): void { activePerspective = v; }
+export function setActivePerspectiveIntensity(v: number): void { activePerspectiveIntensity = v; }
+
+// Spotlight
+export function setActiveSpotlight(v: boolean): void { activeSpotlight = v; }
+
+// Webcam blur
+export function setActiveWebcamBlur(v: boolean): void { activeWebcamBlur = v; }
+export function setActiveWebcamBlurIntensity(v: number): void { activeWebcamBlurIntensity = v; }
+
+// Cursor effect
+export function setActiveCursorEffect(c: CursorEffectConfig): void { activeCursorEffect = c; }
+
+// Click sounds
+export function setActiveClickSounds(v: boolean): void { activeClickSounds = v; }
+
+// Audio ducking
+export function setActiveAudioDucking(v: boolean): void { activeAudioDucking = v; }
+
+// Watermark
+export function setActiveWatermark(w: WatermarkConfig): void { activeWatermark = w; }
+
+// Countdown
+export function setCountdownEnabled(v: boolean): void { countdownEnabled = v; }
 
 // Mic
 export function setCurrentMicDeviceId(id: string | null): void { currentMicDeviceId = id; }

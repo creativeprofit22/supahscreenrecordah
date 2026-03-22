@@ -46,19 +46,6 @@ export function registerPlaybackHandlers(): void {
 
     const ffmpegPath = await findFfmpeg();
     if (ffmpegPath) {
-      // Probe the raw file first to understand what MediaRecorder produced
-      await new Promise<void>((resolve) => {
-        const ffprobePath = ffmpegPath.replace(/ffmpeg(\.exe)?$/, 'ffprobe$1');
-        execFile(
-          ffprobePath,
-          ['-v', 'error', '-show_streams', '-show_format', '-print_format', 'json', rawPath],
-          { timeout: 10_000, maxBuffer: 2 * 1024 * 1024 },
-          () => {
-            resolve();
-          },
-        );
-      });
-
       // Re-encode the video — stream copy isn't enough because the avc3
       // stream from MediaRecorder has broken frame timing that causes
       // Chromium to only display keyframes (~2fps).

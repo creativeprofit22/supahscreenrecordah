@@ -3,6 +3,7 @@ import { getMainWindow } from '../windows/main-window';
 import { getToolbarWindow } from '../windows/toolbar-window';
 import { getEditModalWindow } from '../windows/edit-modal-window';
 import { getOnboardingWindow } from '../windows/onboarding-window';
+import { getThumbnailWindow } from '../windows/thumbnail-window';
 import { Channels } from '../../shared/channels';
 import { RecordingState } from '../../shared/types';
 
@@ -16,6 +17,7 @@ export function isValidSender(event: IpcMainEvent | IpcMainInvokeEvent): boolean
     getToolbarWindow()?.webContents,
     getEditModalWindow()?.webContents,
     getOnboardingWindow()?.webContents,
+    getThumbnailWindow()?.webContents,
   ].filter(Boolean);
   return validWebContents.some((wc) => wc === event.sender);
 }

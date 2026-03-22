@@ -12,6 +12,7 @@
   },
   "type": "commonjs",
   "scripts": {
+    "postinstall": "node scripts/patch-mediapipe.js",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "dev": "npm run build && electron .",
     "watch:main": "tsc -p tsconfig.main.json --watch --preserveWatchOutput",
@@ -34,7 +35,7 @@
     "uiohook-napi": "^1.5.4"
   },
   "devDependencies": {
-    "@electron/fuses": "^2.1.0",
+    "@mediapipe/tasks-vision": "^0.10.33",
     "@types/node": "^22.0.0",
     "@vitest/coverage-v8": "^4.1.0",
     "electron": "^35.0.0",
@@ -75,7 +76,13 @@
       "target": "dir"
     },
     "extraResources": [],
-    "afterPack": "./scripts/afterPack.js"
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeCliInspectArguments": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "onlyLoadAppFromAsar": true,
+      "grantFileProtocolExtraPrivileges": false
+    }
   },
   "overrides": {
     "@electron/asar": "^4.1.0",

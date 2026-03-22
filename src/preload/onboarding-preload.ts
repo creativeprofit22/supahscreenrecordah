@@ -12,10 +12,9 @@ const onboardingAPI: OnboardingAPI = {
   installDependency: (name) => ipcRenderer.invoke(Channels.ONBOARDING_INSTALL_DEPENDENCY, name),
 
   onInstallProgress: (callback) => {
-    ipcRenderer.on(
-      Channels.ONBOARDING_INSTALL_PROGRESS,
-      (_event: Electron.IpcRendererEvent, progress: InstallProgress) => callback(progress),
-    );
+    const handler = (_event: Electron.IpcRendererEvent, progress: InstallProgress) => callback(progress);
+    ipcRenderer.on(Channels.ONBOARDING_INSTALL_PROGRESS, handler);
+    return () => { ipcRenderer.removeListener(Channels.ONBOARDING_INSTALL_PROGRESS, handler); };
   },
 
   completeOnboarding: () => ipcRenderer.send(Channels.ONBOARDING_COMPLETE),

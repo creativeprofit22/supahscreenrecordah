@@ -1,7 +1,7 @@
 // Toolbar renderer — device enumeration, UI control, recording commands
 
 import { formatTime } from '../../shared/format';
-import type { ScreenSource, BgStyle, RecordingState } from '../../shared/types';
+import type { ScreenSource, BgStyle, RecordingState, AspectRatio } from '../../shared/types';
 
 /** Strip USB vendor:product hex IDs like "(2ca3:0023)" from device labels */
 function cleanDeviceLabel(label: string): string {
@@ -24,10 +24,14 @@ const recRetryBtn = document.getElementById('rec-retry-btn') as HTMLButtonElemen
 const recStopBtn = document.getElementById('rec-stop-btn') as HTMLButtonElement;
 const recTimer = document.getElementById('rec-timer') as HTMLElement;
 
+const aspectRatioSelect = document.getElementById('aspect-ratio-select') as HTMLSelectElement;
+const blurBtn = document.getElementById('blur-btn') as HTMLButtonElement;
+
 const toolbar = document.querySelector('.toolbar') as HTMLElement;
 
 let recording = false;
 let paused = false;
+let blurModeActive = false;
 
 let screenSources: ScreenSource[] = [];
 let currentLayout: BgStyle = 'camera-right';
@@ -95,22 +99,34 @@ async function populateDevices(): Promise<void> {
     }
   }
 
-  // Request a temporary stream to trigger permission prompts and populate device labels
+  // Request a temporary audio-only stream to trigger permission prompts and
+  // populate device labels.  We avoid requesting video here because opening
+  // and immediately closing the camera can race with the main window's own
+  // getUserMedia call, causing a "NotReadableError" on Windows.
   try {
-    const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+    const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     for (const track of tempStream.getTracks()) {
       track.stop();
     }
   } catch (err) {
-    console.warn('getUserMedia (audio+video) failed:', err);
-    try {
-      const audioOnly = await navigator.mediaDevices.getUserMedia({ audio: true });
-      for (const track of audioOnly.getTracks()) {
-        track.stop();
-      }
-    } catch (err2) {
-      console.warn('getUserMedia (audio) failed:', err2);
+    const msg = err instanceof DOMException ? `${err.name}: ${err.message}` : String(err);
+    console.warn('getUserMedia (audio) failed:', msg);
+  }
+
+  // Trigger a video permission grant without opening the camera hardware.
+  // On Electron the permission handler auto-approves "media", so a single
+  // check is enough for enumerateDevices to return labelled video devices.
+  try {
+    const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+    for (const track of videoStream.getTracks()) {
+      track.stop();
     }
+    // Give the camera hardware time to fully release before the main window
+    // tries to open the same device.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  } catch {
+    // Video permission or hardware unavailable — enumerateDevices will still
+    // list devices, just potentially without labels.
   }
 
   const devices = await navigator.mediaDevices.enumerateDevices();
@@ -159,6 +175,12 @@ async function populateDevices(): Promise<void> {
     }
   }
 
+  // Restore saved aspect ratio
+  if (config.overlay?.aspectRatio) {
+    aspectRatioSelect.value = config.overlay.aspectRatio;
+    window.toolbarAPI.sendAspectRatioUpdate(config.overlay.aspectRatio);
+  }
+
   requestAnimationFrame(() => {
     toolbar.classList.add('visible');
   });
@@ -190,6 +212,20 @@ function stopTimer(): void {
     timerInterval = null;
   }
   timerSeconds = 0;
+}
+
+// ---------------------------------------------------------------------------
+// Countdown UI
+// ---------------------------------------------------------------------------
+
+function setCountdownUI(value: number): void {
+  toolbar.classList.add('countdown');
+  toolbar.classList.remove('recording');
+  recTimer.textContent = `${value}...`;
+}
+
+function clearCountdownUI(): void {
+  toolbar.classList.remove('countdown');
 }
 
 // ---------------------------------------------------------------------------
@@ -332,13 +368,42 @@ layoutToggle.addEventListener('click', () => {
   persistSelections();
 });
 
+aspectRatioSelect.addEventListener('change', () => {
+  const ratio = aspectRatioSelect.value as AspectRatio;
+  window.toolbarAPI.sendAspectRatioUpdate(ratio);
+  // Persist into overlay config
+  window.toolbarAPI.saveConfig({ overlay: { aspectRatio: ratio } } as any);
+});
+
 window.toolbarAPI.onStateUpdate((state: RecordingState) => {
+  // Handle countdown state
+  if (state.countdownValue != null) {
+    setCountdownUI(state.countdownValue);
+    return;
+  }
+
+  // Countdown just finished and recording started
   if (state.isRecording && !recording) {
+    clearCountdownUI();
     startTimer();
   } else if (!state.isRecording && recording) {
     stopTimer();
   }
   setRecordingUI(state.isRecording, state.isPaused);
+});
+
+// ---------------------------------------------------------------------------
+// Blur regions toggle
+// ---------------------------------------------------------------------------
+
+blurBtn.addEventListener('click', () => {
+  blurModeActive = !blurModeActive;
+  if (blurModeActive) {
+    blurBtn.classList.add('active');
+  } else {
+    blurBtn.classList.remove('active');
+  }
+  window.toolbarAPI.toggleBlurMode();
 });
 
 // ---------------------------------------------------------------------------
@@ -438,6 +503,14 @@ updateBtn.addEventListener('click', () => {
   if (updateUrl) {
     void window.toolbarAPI.openUrl(updateUrl);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Chapters ready
+// ---------------------------------------------------------------------------
+
+window.toolbarAPI.onChaptersReady((chapters) => {
+  console.log(`[toolbar] ${chapters.length} chapters ready (copied to clipboard)`);
 });
 
 // ---------------------------------------------------------------------------

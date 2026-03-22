@@ -7,8 +7,9 @@
 import '../lib/pep'; // Auto-registers click sound effect
 import * as perfMonitor from '../lib/perf-monitor';
 
-import { handlePreviewUpdate, initResizeHandler, initScreenDrag } from './preview';
+import { handlePreviewUpdate, initResizeHandler, initScreenDrag, applyAspectRatioLayout } from './preview';
 import { startRecording, stopRecording, pauseRecording, resumeRecording, isRecordingActive, refreshRecLayoutCache } from './recording';
+import { runCountdown, skipCountdown, isCountdownActive } from './overlays/countdown';
 import { initPlaybackHandlers } from './playback';
 import { updateCameraName, isMagnifyActive } from './overlays/camera-name';
 import { updateSocialsOverlay } from './overlays/socials';
@@ -16,14 +17,23 @@ import { applyCameraFiltersToPreview, buildEnhancementFilter } from './overlays/
 import { setCtaConfig, showCtaPopup, startCtaLoop, stopCtaLoop } from './overlays/cta-popup';
 import { initAmbientParticles, initMeshBlobs, getMeshBlobsColor, ensureMeshStartTime, startMeshLoop, startParticleLoop as startBgParticleLoop } from './overlays/background';
 import { addActionFeedItem, hasActionFeedItems } from './overlays/action-feed';
+import { handleKeyboardOverlayEvent } from './overlays/keyboard-overlay';
 import { isWaveformActive } from './overlays/waveform';
-import { setZoomConfig, onMouseDown, onMouseUp, sizeBgCanvas, isZoomLoopRunning } from './zoom';
-import { previewContainer, cameraContainer, bgCtx, bgCanvas } from './dom';
+import { setZoomConfig, onMouseDown, onMouseUp, sizeBgCanvas, isZoomLoopRunning, getMouseRelativeToCaptured } from './zoom';
+import { toggleBlurMode, setBlurRegions, refreshBlurRegionPositions } from './overlays/blur-regions';
+import { showPreviewSpotlight, hidePreviewSpotlight, updatePreviewSpotlight } from './overlays/spotlight';
+import { setCursorEffectConfig, addClickRipple } from './overlays/cursor-effects';
+import { initWebcamBlur, startPreviewBlur, stopPreviewBlur, disposeWebcamBlur } from './overlays/webcam-blur';
+import { playClickSound } from './audio/click-sounds';
+import { loadWatermark, clearWatermark } from './overlays/watermark';
+import { previewContainer, cameraContainer, cameraVideo, bgCtx, bgCanvas } from './dom';
 import {
   screenStream,
   activeSocials,
   activeCinemaFilter, activeCameraEnhancement,
   ctaText, ctaIntervalMs,
+  activeAspectRatio,
+  countdownEnabled,
   setCurrentMouseX, setCurrentMouseY,
   setDisplayBounds,
   setOverlayName,
@@ -32,7 +42,16 @@ import {
   setActiveCinemaFilter,
   setActiveCameraEnhancement,
   setAmbientParticlesEnabled, ambientParticlesEnabled,
+  setCountdownEnabled,
+  activeWebcamBlur,
+  setActiveWebcamBlur, setActiveWebcamBlurIntensity,
+  activeSpotlight, setActiveSpotlight,
+  setActiveCursorEffect,
+  activeClickSounds, setActiveClickSounds,
+  setActivePerspective, setActivePerspectiveIntensity,
+  activeWatermark, setActiveWatermark,
 } from './state';
+import { ASPECT_RATIOS } from '../../shared/feature-types';
 
 import type { OverlayConfig } from '../../shared/types';
 
@@ -49,6 +68,15 @@ window.mainAPI.onMousePosition((position) => {
 window.mainAPI.onMouseClick((event) => {
   if (event.type === 'down') {
     onMouseDown();
+    // Spawn click ripple at the mouse position (relative to captured content)
+    const relPos = getMouseRelativeToCaptured();
+    if (relPos) {
+      addClickRipple(relPos.relX, relPos.relY);
+    }
+    // Play click sound during recording
+    if (activeClickSounds && isRecordingActive()) {
+      playClickSound('mouse-click');
+    }
   } else if (event.type === 'up') {
     onMouseUp();
   }
@@ -76,10 +104,31 @@ window.mainAPI.onOverlayUpdate((settings) => {
 
 window.mainAPI.onRecordingStart((micDeviceId) => {
   console.log('[rec] onRecordingStart received, micDeviceId:', micDeviceId);
-  startRecording(micDeviceId).catch((error) => {
-    console.error('Failed to start recording:', error);
-  });
-  startCtaLoop();
+
+  // If a countdown is already running, skip it (user pressed record again)
+  if (isCountdownActive()) {
+    skipCountdown();
+    return;
+  }
+
+  const doStart = (): void => {
+    // Signal countdown finished (null = recording is now active)
+    window.mainAPI.sendCountdownTick(null);
+    startRecording(micDeviceId).catch((error) => {
+      console.error('Failed to start recording:', error);
+    });
+    startCtaLoop();
+  };
+
+  if (countdownEnabled) {
+    runCountdown((value) => {
+      window.mainAPI.sendCountdownTick(value);
+    }).then(doStart).catch((error) => {
+      console.error('Countdown error:', error);
+    });
+  } else {
+    doStart();
+  }
 });
 
 window.mainAPI.onRecordingStop(() => {
@@ -109,6 +158,28 @@ window.mainAPI.onCtaTest(() => {
 
 window.mainAPI.onActionEvent((event) => {
   addActionFeedItem(event);
+  handleKeyboardOverlayEvent(event);
+  // Play key-press sound for typing/shortcut actions during recording
+  if (activeClickSounds && isRecordingActive() && (event.type === 'type' || event.type === 'shortcut')) {
+    playClickSound('key-press');
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Wire IPC events — blur mode toggle from toolbar
+// ---------------------------------------------------------------------------
+
+window.mainAPI.onBlurModeToggle(() => {
+  toggleBlurMode();
+});
+
+// ---------------------------------------------------------------------------
+// Wire IPC events — aspect ratio update from toolbar
+// ---------------------------------------------------------------------------
+
+window.mainAPI.onAspectRatioUpdate((ratio) => {
+  applyAspectRatioLayout(ratio);
+  refreshRecLayoutCache();
 });
 
 // ---------------------------------------------------------------------------
@@ -198,6 +269,69 @@ function applyOverlay(settings: OverlayConfig): void {
     }
   }
 
+  // Blur regions from overlay config
+  if (settings.blurRegions) {
+    setBlurRegions(settings.blurRegions);
+  }
+
+  // Spotlight effect
+  const wantSpotlight = settings.spotlight ?? false;
+  if (wantSpotlight && !activeSpotlight) {
+    setActiveSpotlight(true);
+    showPreviewSpotlight();
+  } else if (!wantSpotlight && activeSpotlight) {
+    setActiveSpotlight(false);
+    hidePreviewSpotlight();
+  }
+
+  // Cursor effects (trail + click ripple)
+  const cursorEffect = settings.cursorEffect ?? { trail: 'none' as const, clickRipple: false, clickRippleColor: '#ffffff' };
+  setActiveCursorEffect(cursorEffect);
+  setCursorEffectConfig(cursorEffect);
+
+  // Webcam background blur
+  const wantWebcamBlur = settings.webcamBlur ?? false;
+  const webcamBlurIntensity = settings.webcamBlurIntensity ?? 30;
+  setActiveWebcamBlurIntensity(webcamBlurIntensity);
+
+  if (wantWebcamBlur && !activeWebcamBlur) {
+    // Turning on — init segmenter and start preview blur
+    setActiveWebcamBlur(true);
+    void initWebcamBlur().then(() => {
+      startPreviewBlur(cameraVideo, cameraContainer, webcamBlurIntensity);
+    });
+  } else if (!wantWebcamBlur && activeWebcamBlur) {
+    // Turning off — dispose segmenter and stop preview blur
+    setActiveWebcamBlur(false);
+    disposeWebcamBlur();
+  } else if (wantWebcamBlur && activeWebcamBlur) {
+    // Already on — update intensity for preview
+    stopPreviewBlur();
+    startPreviewBlur(cameraVideo, cameraContainer, webcamBlurIntensity);
+  }
+
+  // Click sounds
+  setActiveClickSounds(settings.clickSounds ?? false);
+
+  // Perspective tilt effect
+  setActivePerspective(settings.perspective ?? false);
+  setActivePerspectiveIntensity(settings.perspectiveIntensity ?? 2);
+
+  // Countdown setting
+  setCountdownEnabled(settings.countdownEnabled ?? true);
+
+  // Watermark overlay
+  const wm = settings.watermark ?? { enabled: false, imagePath: '', position: 'bottom-right' as const, opacity: 0.7, size: 10 };
+  setActiveWatermark(wm);
+  if (wm.enabled && wm.imagePath) {
+    // Load/cache watermark image (only re-loads if path changed)
+    void loadWatermark(wm.imagePath).catch(() => {
+      // Image load failed — logged inside loadWatermark
+    });
+  } else {
+    clearWatermark();
+  }
+
   // Refresh recording layout cache if recording is active
   refreshRecLayoutCache();
 }
@@ -247,7 +381,7 @@ function refreshPerfMonitorFeatures(): void {
     { name: `Cinema filter: ${activeCinemaFilter}`, cost: 'medium', active: hasCinema },
     { name: 'Social overlays', cost: 'low', active: activeSocials.length > 0 },
     { name: 'Animated border (conic gradient)', cost: 'medium', active: recording },
-    { name: 'Canvas recording (1920×1080)', cost: 'high', active: recording },
+    { name: `Canvas recording (${ASPECT_RATIOS[activeAspectRatio].width}×${ASPECT_RATIOS[activeAspectRatio].height})`, cost: 'high', active: recording },
     {
       name: 'Camera enhancement filters',
       cost: 'low',

@@ -14,7 +14,16 @@ import {
   ctaIsVisible, ctaText,
   currentMicDeviceId,
   savedMicDeviceIdForRestart, setSavedMicDeviceIdForRestart,
+  activeAspectRatio,
+  activeWebcamBlur, activeWebcamBlurIntensity,
+  activeSpotlight, smoothMouseX, smoothMouseY,
+  capturedBounds,
+  activeClickSounds,
+  activeAudioDucking,
+  activePerspective, activePerspectiveIntensity,
+  activeWatermark,
 } from './state';
+import { ASPECT_RATIOS } from '../../shared/feature-types';
 import {
   screenVideo, cameraVideo, cameraContainer,
   cameraName, cameraSocials,
@@ -29,7 +38,16 @@ import { drawCtaOnCanvas } from './overlays/cta-popup';
 import { drawWaveformOnCanvas, stopWaveformCapture } from './overlays/waveform';
 import { drawActionFeedOnCanvas } from './overlays/action-feed';
 import { getSocialPath2D } from './overlays/socials';
+import { drawBlurRegionsOnCanvas } from './overlays/blur-regions';
+import { drawSpotlight, getSpotlightRadius } from './overlays/spotlight';
+import { drawCursorTrail, drawClickRipples, pushTrailPoint, hasActiveEffects, clearTrail, clearRipples } from './overlays/cursor-effects';
+import { drawKeyboardOverlayOnCanvas } from './overlays/keyboard-overlay';
+import { applyPerspectiveToCtx } from './overlays/perspective';
+import { processBlurFrame } from './overlays/webcam-blur';
+import { drawWatermark } from './overlays/watermark';
 import { isVisible as isPerfVisible, updatePipelineState } from '../../renderer/lib/perf-monitor';
+import { initClickSounds, disposeClickSounds } from './audio/click-sounds';
+import { initDucking, disposeDucking } from './audio/ducking';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -91,6 +109,32 @@ let recCaptureTrack: CanvasCapture | null = null;
 let recCombinedStream: MediaStream | null = null;
 let recGeneration = 0;
 let recLayoutCache: RecLayoutCache | null = null;
+
+// ---------------------------------------------------------------------------
+// Auto-save state (crash recovery)
+// ---------------------------------------------------------------------------
+
+/** Whether auto-save is enabled for the current recording session */
+let recAutoSaveEnabled = false;
+/** Interval handle for periodic flush via requestData() */
+let recAutoSaveInterval: ReturnType<typeof setInterval> | null = null;
+/** The file extension for the current recording (needed for recovery file naming) */
+let recAutoSaveExtension = 'webm';
+/** Flush interval in milliseconds */
+const AUTOSAVE_INTERVAL_MS = 30_000;
+
+// ---------------------------------------------------------------------------
+// Pause timestamp tracking
+// ---------------------------------------------------------------------------
+
+/** Wall-clock time when the MediaRecorder started */
+let recStartTime = 0;
+/** Accumulated paused duration in ms (excluded from output video) */
+let recTotalPausedMs = 0;
+/** Wall-clock time when the current pause began (0 = not paused) */
+let recLastPauseTime = 0;
+/** Cut points in the output video timeline (seconds) where pause/resume splices occur */
+let recPauseCutPoints: number[] = [];
 
 /** Guard against setInterval frame pileup — skip if previous frame is still rendering */
 let recFrameInProgress = false;
@@ -360,6 +404,20 @@ function drawRecordingFrame(): void {
     // Apply vibrancy boost only to the screen drawImage calls
     recCtx.filter = 'saturate(1.12) contrast(1.03)';
 
+    // Apply subtle 3D perspective tilt based on cursor position.
+    // Uses the existing smooth mouse (which has spring-based inertia) so
+    // the tilt lags slightly behind the cursor for a natural feel.
+    // The subsequent recCtx.restore() resets the transform automatically.
+    if (activePerspective && activePerspectiveIntensity > 0) {
+      const relPos = getMouseRelativeToCaptured();
+      if (relPos) {
+        applyPerspectiveToCtx(
+          recCtx, relPos.relX, relPos.relY,
+          activePerspectiveIntensity, x, y, vw, vh,
+        );
+      }
+    }
+
     // Apply zoom crop to the source video
     const natW = screenVideo.videoWidth;
     const natH = screenVideo.videoHeight;
@@ -388,6 +446,51 @@ function drawRecordingFrame(): void {
 
     // Reset vibrancy filter after screen draw
     recCtx.filter = 'none';
+
+    // Draw blur regions on screen (baked into every recorded frame)
+    // Build crop info for zoomed drawing
+    let blurCropInfo: { sx: number; sy: number; sw: number; sh: number } | null = null;
+    if (currentZoom > 1.0 && natW && natH) {
+      const cropW = natW / currentZoom;
+      const cropH = natH / currentZoom;
+      const relPos = getMouseRelativeToCaptured();
+      if (relPos) {
+        let cropX = relPos.relX * natW - cropW / 2;
+        let cropY = relPos.relY * natH - cropH / 2;
+        cropX = Math.max(0, Math.min(natW - cropW, cropX));
+        cropY = Math.max(0, Math.min(natH - cropH, cropY));
+        blurCropInfo = { sx: cropX, sy: cropY, sw: cropW, sh: cropH };
+      }
+    }
+    drawBlurRegionsOnCanvas(recCtx, x, y, vw, vh, screenVideo, currentZoom, blurCropInfo);
+
+    // Spotlight dim overlay — after screen video + blur, before camera/text
+    if (activeSpotlight) {
+      // Convert smooth mouse (screen coords) to canvas coords within the screen area
+      const relPos = getMouseRelativeToCaptured();
+      if (relPos) {
+        const spotMouseX = x + relPos.relX * vw;
+        const spotMouseY = y + relPos.relY * vh;
+        const spotRadius = getSpotlightRadius(currentZoom) * scale;
+        drawSpotlight(recCtx, spotMouseX, spotMouseY, x, y, vw, vh, spotRadius);
+      }
+    }
+
+    // Cursor trail + click ripple effects — after screen + blur + spotlight, clipped to screen area
+    {
+      const relPos = getMouseRelativeToCaptured();
+      if (relPos) {
+        // Push trail point as relative coordinates (0–1)
+        pushTrailPoint(relPos.relX, relPos.relY);
+      }
+      if (hasActiveEffects()) {
+        drawCursorTrail(recCtx, x, y, vw, vh, scale);
+        drawClickRipples(recCtx, x, y, vw, vh, scale);
+      }
+    }
+
+    // Keyboard shortcut overlay — prominent pills for modifier combos (bottom-center of screen)
+    drawKeyboardOverlayOnCanvas(recCtx, x, y, vw, vh, scale);
 
     recCtx.restore(); // restore clip
   }
@@ -449,7 +552,17 @@ function drawRecordingFrame(): void {
       recCtx.save();
       recCtx.translate(x + vw, y);
       recCtx.scale(-1, 1);
-      recCtx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, vw, vh);
+
+      // Use background-blurred frame when webcam blur is active
+      const blurResult = activeWebcamBlur
+        ? processBlurFrame(cameraVideo, activeWebcamBlurIntensity)
+        : null;
+      if (blurResult) {
+        recCtx.drawImage(blurResult, sx, sy, sw, sh, 0, 0, vw, vh);
+      } else {
+        recCtx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, vw, vh);
+      }
+
       recCtx.restore();
     }
 
@@ -558,6 +671,11 @@ function drawRecordingFrame(): void {
     drawCtaOnCanvas(recCtx, w, h, scale);
   }
 
+  // Watermark/branding overlay — drawn last so it's always on top
+  if (activeWatermark.enabled && activeWatermark.imagePath) {
+    drawWatermark(recCtx, activeWatermark, w, h);
+  }
+
   const tEnd = performance.now();
 
   // Accumulate profiling data
@@ -659,6 +777,13 @@ export function pickRecordingFormat(): { mimeType: string; extension: string } {
 
 /** Clean up all recording resources (streams, audio, canvas) */
 function cleanupRecordingResources(): void {
+  // Stop auto-save interval
+  if (recAutoSaveInterval !== null) {
+    clearInterval(recAutoSaveInterval);
+    recAutoSaveInterval = null;
+  }
+  recAutoSaveEnabled = false;
+
   // Clean up compositing loop
   if (recAnimFrame !== null) {
     clearInterval(recAnimFrame);
@@ -699,6 +824,14 @@ function cleanupRecordingResources(): void {
     void recAudioCtx.close();
     recAudioCtx = null;
   }
+
+  // Dispose audio ducking and click sounds before closing audio context
+  disposeDucking();
+  disposeClickSounds();
+
+  // Clear cursor effect state
+  clearTrail();
+  clearRipples();
 
   recLayoutCache = null;
   recCaptureTrack = null;
@@ -743,8 +876,9 @@ export async function startRecording(micDeviceId: string | null): Promise<void> 
     recCanvasStream = null;
   }
 
-  const outputW = 1920;
-  const outputH = 1080;
+  const arConfig = ASPECT_RATIOS[activeAspectRatio];
+  const outputW = arConfig.width;
+  const outputH = arConfig.height;
   recCanvas = document.createElement('canvas');
   recCanvas.width = outputW;
   recCanvas.height = outputH;
@@ -801,15 +935,52 @@ export async function startRecording(micDeviceId: string | null): Promise<void> 
   // captureStream video track. Routing through AudioContext creates a
   // "synthetic" MediaStreamTrack from the destination node, which the
   // MP4 muxer handles correctly.
-  if (audioTracks.length > 0) {
+  // Also create the AudioContext when click sounds are enabled (even without mic)
+  // so synthesised sounds are mixed into the recording output.
+  // Collect screen audio tracks from the screen capture stream (if available)
+  const screenAudioTracks = screenStream?.getAudioTracks() ?? [];
+
+  const needAudioCtx = audioTracks.length > 0 || screenAudioTracks.length > 0 || activeClickSounds;
+  if (needAudioCtx) {
     recAudioCtx = new AudioContext({ sampleRate: REC_AUDIO_SAMPLE_RATE });
     await recAudioCtx.resume();
     const dest = recAudioCtx.createMediaStreamDestination();
     recAudioSources = [];
+
+    // Track the mic source node for ducking (need reference before connecting)
+    let micSourceNode: MediaStreamAudioSourceNode | null = null;
+
+    // Connect mic audio tracks directly to destination (mic is never ducked)
     for (const track of audioTracks) {
       const source = recAudioCtx.createMediaStreamSource(new MediaStream([track]));
       source.connect(dest);
       recAudioSources.push(source); // prevent GC from disconnecting the node
+      micSourceNode = source; // last mic source — typically only one
+    }
+
+    // Connect screen/system audio tracks through a GainNode so ducking can
+    // control their volume. When ducking is disabled the gain stays at 1.0
+    // (pass-through) so there's no audible difference.
+    let systemGain: GainNode | null = null;
+    if (screenAudioTracks.length > 0) {
+      systemGain = recAudioCtx.createGain();
+      systemGain.gain.value = 1.0;
+      systemGain.connect(dest);
+      for (const track of screenAudioTracks) {
+        const source = recAudioCtx.createMediaStreamSource(new MediaStream([track]));
+        source.connect(systemGain);
+        recAudioSources.push(source);
+      }
+    }
+
+    // Initialise audio ducking when enabled and both mic + screen audio exist
+    if (activeAudioDucking && micSourceNode && systemGain) {
+      initDucking(recAudioCtx, micSourceNode, systemGain);
+    }
+
+    // Connect click sounds to the same destination so they're captured in the recording
+    if (activeClickSounds) {
+      initClickSounds(recAudioCtx, dest);
     }
     combinedTracks.push(...dest.stream.getAudioTracks());
   }
@@ -831,6 +1002,14 @@ export async function startRecording(micDeviceId: string | null): Promise<void> 
   recMediaRecorder.ondataavailable = (e: BlobEvent) => {
     if (e.data.size > 0) {
       recChunks.push(e.data);
+      // Auto-save: send chunk to main process for crash recovery
+      if (recAutoSaveEnabled) {
+        void e.data.arrayBuffer().then((buf) => {
+          window.mainAPI.sendAutosaveChunk(buf, recAutoSaveExtension).catch((err) => {
+            console.warn('[autosave] Failed to send chunk:', err);
+          });
+        });
+      }
     }
   };
 
@@ -876,6 +1055,14 @@ export async function startRecording(micDeviceId: string | null): Promise<void> 
         recMediaRecorder.ondataavailable = (ev: BlobEvent) => {
           if (ev.data.size > 0) {
             recChunks.push(ev.data);
+            // Auto-save: send chunk to main process for crash recovery
+            if (recAutoSaveEnabled) {
+              void ev.data.arrayBuffer().then((buf) => {
+                window.mainAPI.sendAutosaveChunk(buf, recAutoSaveExtension).catch((err) => {
+                  console.warn('[autosave] Failed to send chunk:', err);
+                });
+              });
+            }
           }
         };
 
@@ -965,6 +1152,10 @@ export async function startRecording(micDeviceId: string | null): Promise<void> 
     }
     recAudioSources = [];
 
+    // Dispose audio ducking and click sounds before closing audio context
+    disposeDucking();
+    disposeClickSounds();
+
     if (recAudioCtx) {
       void recAudioCtx.close();
       recAudioCtx = null;
@@ -979,6 +1170,32 @@ export async function startRecording(micDeviceId: string | null): Promise<void> 
   };
 
   recMediaRecorder.start(1000);
+
+  // Initialize pause timestamp tracking
+  recStartTime = performance.now();
+  recTotalPausedMs = 0;
+  recLastPauseTime = 0;
+  recPauseCutPoints = [];
+
+  // Initialize auto-save: fetch config and set up periodic flush
+  const { extension } = pickRecordingFormat();
+  recAutoSaveExtension = extension;
+  try {
+    const config = await window.mainAPI.getConfig();
+    recAutoSaveEnabled = config.autoSaveChunks ?? true;
+  } catch {
+    recAutoSaveEnabled = true; // default on — safety net
+  }
+  if (recAutoSaveEnabled) {
+    // Clean up any leftover recovery file from a previous session
+    void window.mainAPI.autosaveCleanup();
+    console.log('[autosave] Enabled — flushing every', AUTOSAVE_INTERVAL_MS / 1000, 's');
+    recAutoSaveInterval = setInterval(() => {
+      if (recMediaRecorder && recMediaRecorder.state === 'recording') {
+        recMediaRecorder.requestData();
+      }
+    }, AUTOSAVE_INTERVAL_MS);
+  }
 
   // Signal main process that recording is fully started (mic acquired,
   // MediaRecorder running). Main process will now hide the window.
@@ -998,6 +1215,10 @@ export function stopRecording(): void {
     '[rec] stopRecording — recMediaRecorder:', recMediaRecorder.state,
     'chunks:', recChunks.length,
   );
+  // Clean up the recovery temp file — normal save flow handles the final file
+  if (recAutoSaveEnabled) {
+    void window.mainAPI.autosaveCleanup();
+  }
   if (recMediaRecorder.state !== 'inactive') {
     recMediaRecorder.stop();
   }
@@ -1005,18 +1226,32 @@ export function stopRecording(): void {
 
 /**
  * Pause recording — pauses the MediaRecorder (audio + video freeze).
+ * Records the cut point in the output video timeline for transition effects.
  */
 export function pauseRecording(): void {
   if (recMediaRecorder && recMediaRecorder.state === 'recording') {
+    // Calculate elapsed recording time (excluding previous pauses) in seconds
+    const now = performance.now();
+    const elapsedMs = now - recStartTime - recTotalPausedMs;
+    const cutPointSec = elapsedMs / 1000;
+    recPauseCutPoints.push(cutPointSec);
+    recLastPauseTime = now;
+    console.log(`[rec] Pause at video time ${cutPointSec.toFixed(3)}s`);
     recMediaRecorder.pause();
   }
 }
 
 /**
  * Resume recording — resumes a paused MediaRecorder.
+ * Accumulates paused duration so subsequent cut points are accurate.
  */
 export function resumeRecording(): void {
   if (recMediaRecorder && recMediaRecorder.state === 'paused') {
+    // Accumulate the paused duration
+    if (recLastPauseTime > 0) {
+      recTotalPausedMs += performance.now() - recLastPauseTime;
+      recLastPauseTime = 0;
+    }
     recMediaRecorder.resume();
   }
 }
@@ -1045,4 +1280,9 @@ export function getRecorderState(): string | null {
 /** Get the total number of recorded chunks so far. */
 export function getRecChunkCount(): number {
   return recChunks.length;
+}
+
+/** Get the pause cut points (seconds in the output video) collected during this recording. */
+export function getPauseCutPoints(): number[] {
+  return [...recPauseCutPoints];
 }

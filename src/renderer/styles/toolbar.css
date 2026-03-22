@@ -109,18 +109,41 @@ body {
 }
 
 /* Recording state: controls hidden, recording in flow */
-.toolbar.recording .toolbar-controls {
+.toolbar.recording .toolbar-controls,
+.toolbar.countdown .toolbar-controls {
   position: absolute;
   opacity: 0;
   transform: scale(0.92);
   pointer-events: none;
 }
 
-.toolbar.recording .toolbar-recording {
+.toolbar.recording .toolbar-recording,
+.toolbar.countdown .toolbar-recording {
   position: relative;
   opacity: 1;
   transform: scale(1);
   pointer-events: auto;
+}
+
+/* Countdown state — timer shows "3..." "2..." "1..." with pulsing text */
+.toolbar.countdown .rec-dot {
+  background: var(--yellow);
+  animation: pulse-dot 0.5s ease-in-out infinite;
+}
+
+.toolbar.countdown .rec-timer {
+  color: var(--yellow);
+  animation: pulse-countdown 1s ease-in-out infinite;
+}
+
+.toolbar.countdown .toolbar-recording button {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+@keyframes pulse-countdown {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 /* ── Buttons ── */
@@ -280,6 +303,14 @@ body {
 .device-select option {
   background: var(--surface);
   color: var(--text);
+}
+
+/* ── Aspect ratio select ── */
+.aspect-ratio-select {
+  min-width: 70px;
+  max-width: 90px;
+  font-size: 12px;
+  padding: 4px 22px 4px 6px;
 }
 
 /* ── Update button ── */

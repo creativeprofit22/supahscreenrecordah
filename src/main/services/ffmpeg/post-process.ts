@@ -11,6 +11,35 @@ import {
   POST_BOOST_FILTERS,
 } from './filters';
 import { VIDEO_ENCODE_FLAGS, FFMPEG_EXEC_OPTIONS, FFMPEG_EXEC_OPTIONS_SHORT } from './encode';
+import type { ProgressBarConfig } from '../../../shared/feature-types';
+import type { PauseTimestamp } from '../../../shared/types';
+import { buildPauseTransitionFilter } from './pause-transitions';
+
+/**
+ * Merge encode flags with an optional video filter string.
+ * If the encode flags already contain a `-vf` entry (e.g. scale filter from
+ * buildEncodeFlags), its value is combined with the additional videoFilter
+ * using a comma separator. Returns a flat args array ready for execFile.
+ */
+function mergeVideoFilters(flags: string[], videoFilter?: string): string[] {
+  const vfIndex = flags.indexOf('-vf');
+  if (vfIndex === -1) {
+    // No -vf in flags — use flags as-is, append videoFilter separately if present
+    if (videoFilter) {
+      return [...flags, '-vf', videoFilter];
+    }
+    return [...flags];
+  }
+
+  // Extract existing -vf value from flags
+  const existingVf = flags[vfIndex + 1];
+  const mergedVf = videoFilter ? `${existingVf},${videoFilter}` : existingVf;
+
+  // Return flags without the -vf pair, then append the merged -vf
+  const result = [...flags.slice(0, vfIndex), ...flags.slice(vfIndex + 2)];
+  result.push('-vf', mergedVf);
+  return result;
+}
 
 interface LoudnormMeasurement {
   input_i: string;
@@ -23,6 +52,47 @@ interface LoudnormMeasurement {
 interface FfmpegResult {
   success: boolean;
   stderr: string;
+}
+
+/** Convert a hex color string (e.g. '#ff0000') to FFmpeg's 0xRRGGBB format */
+function hexToFfmpegColor(hex: string): string {
+  const clean = hex.replace('#', '');
+  return `0x${clean}`;
+}
+
+/** Probe the video duration in seconds using FFmpeg */
+function probeDuration(ffmpegPath: string, filePath: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    execFile(
+      ffmpegPath,
+      ['-i', filePath, '-f', 'null', '-'],
+      FFMPEG_EXEC_OPTIONS_SHORT,
+      (_error, _stdout, stderr) => {
+        // FFmpeg prints duration in stderr like: Duration: 00:01:23.45
+        const match = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(stderr);
+        if (match) {
+          const hours = parseInt(match[1], 10);
+          const minutes = parseInt(match[2], 10);
+          const seconds = parseFloat(match[3]);
+          resolve(hours * 3600 + minutes * 60 + seconds);
+        } else {
+          resolve(null);
+        }
+      },
+    );
+  });
+}
+
+/**
+ * Build the FFmpeg drawbox video filter for an animated progress bar.
+ * The bar grows from left to right proportional to elapsed time.
+ */
+function buildProgressBarFilter(config: ProgressBarConfig, duration: number): string {
+  const color = hexToFfmpegColor(config.color);
+  const h = config.height;
+  const y = config.position === 'top' ? '0' : `ih-${h}`;
+  const opacity = 0.8;
+  return `drawbox=x=0:y=${y}:w='iw*t/${duration.toFixed(3)}':h=${h}:color=${color}@${opacity}:t=fill`;
 }
 
 /** Run FFmpeg pass 1: apply voice filters + loudnorm in measure-only mode */
@@ -77,6 +147,8 @@ function runLoudnormPass2(
   filePath: string,
   tmpPath: string,
   measured: LoudnormMeasurement,
+  videoFilter?: string,
+  encodeFlags?: string[],
 ): Promise<FfmpegResult> {
   const pass2Filter = [
     'aresample=async=1000:first_pts=0',
@@ -88,13 +160,16 @@ function runLoudnormPass2(
     POST_BOOST_FILTERS,
   ].join(',');
 
+  const flags = encodeFlags ?? VIDEO_ENCODE_FLAGS;
+  const vfArgs = mergeVideoFilters(flags, videoFilter);
+
   return new Promise((resolve) => {
     execFile(
       ffmpegPath,
       [
         '-fflags', '+genpts',
         '-i', filePath,
-        ...VIDEO_ENCODE_FLAGS,
+        ...vfArgs,
         '-af', pass2Filter,
         '-c:a', 'aac',
         '-b:a', '384k',
@@ -116,6 +191,8 @@ function runSinglePassEnhance(
   ffmpegPath: string,
   filePath: string,
   tmpPath: string,
+  videoFilter?: string,
+  encodeFlags?: string[],
 ): Promise<FfmpegResult> {
   const filter = [
     'aresample=async=1000:first_pts=0',
@@ -124,13 +201,16 @@ function runSinglePassEnhance(
     POST_BOOST_FILTERS,
   ].join(',');
 
+  const flags = encodeFlags ?? VIDEO_ENCODE_FLAGS;
+  const vfArgs = mergeVideoFilters(flags, videoFilter);
+
   return new Promise((resolve) => {
     execFile(
       ffmpegPath,
       [
         '-fflags', '+genpts',
         '-i', filePath,
-        ...VIDEO_ENCODE_FLAGS,
+        ...vfArgs,
         '-af', filter,
         '-c:a', 'aac',
         '-b:a', '384k',
@@ -156,7 +236,12 @@ function runSinglePassEnhance(
  *
  * Falls back gracefully: two-pass → single-pass → simple remux
  */
-export async function postProcessRecording(filePath: string): Promise<void> {
+export async function postProcessRecording(
+  filePath: string,
+  progressBar?: ProgressBarConfig,
+  pauseTimestamps?: PauseTimestamp[],
+  customEncodeFlags?: string[],
+): Promise<void> {
   if (!filePath.toLowerCase().endsWith('.mp4')) {
     return;
   }
@@ -167,6 +252,31 @@ export async function postProcessRecording(filePath: string): Promise<void> {
     return;
   }
 
+  // Build video filter chain (pause transitions + progress bar)
+  const videoFilterParts: string[] = [];
+
+  // Pause transition fades (fade-to-black / fade-from-black at each cut point)
+  const pauseFilter = buildPauseTransitionFilter(pauseTimestamps);
+  if (pauseFilter) {
+    videoFilterParts.push(pauseFilter);
+  }
+
+  // Progress bar overlay
+  if (progressBar?.enabled) {
+    const duration = await probeDuration(ffmpegPath, filePath);
+    if (duration && duration > 0) {
+      const pbFilter = buildProgressBarFilter(progressBar, duration);
+      videoFilterParts.push(pbFilter);
+      console.log('[export] Progress bar filter:', pbFilter);
+    } else {
+      console.warn('[export] Could not determine video duration — skipping progress bar.');
+    }
+  }
+
+  const videoFilter = videoFilterParts.length > 0
+    ? videoFilterParts.join(',')
+    : undefined;
+
   const tmpPath = path.join(os.tmpdir(), `supahscreenrecordah-export-${Date.now()}.mp4`);
 
   // Pass 1: measure loudness
@@ -175,11 +285,11 @@ export async function postProcessRecording(filePath: string): Promise<void> {
   let result: FfmpegResult;
   if (measured) {
     // Pass 2: apply precise normalization with measured values
-    result = await runLoudnormPass2(ffmpegPath, filePath, tmpPath, measured);
+    result = await runLoudnormPass2(ffmpegPath, filePath, tmpPath, measured, videoFilter, customEncodeFlags);
   } else {
     // Fallback to single-pass if measurement failed
     console.warn('[export] Falling back to single-pass loudnorm.');
-    result = await runSinglePassEnhance(ffmpegPath, filePath, tmpPath);
+    result = await runSinglePassEnhance(ffmpegPath, filePath, tmpPath, videoFilter, customEncodeFlags);
   }
 
   if (result.success) {

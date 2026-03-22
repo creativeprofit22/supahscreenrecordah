@@ -162,6 +162,8 @@ function downloadFile(
           let receivedBytes = 0;
           const file = fs.createWriteStream(destPath);
 
+          res.on('error', reject);
+
           res.on('data', (chunk: Buffer) => {
             receivedBytes += chunk.length;
             if (totalBytes > 0) {

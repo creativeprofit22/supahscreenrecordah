@@ -23,7 +23,7 @@ export interface OnboardingAPI {
   ) => Promise<boolean>;
   checkDependencies: () => Promise<DependencyStatus>;
   installDependency: (name: string) => Promise<void>;
-  onInstallProgress: (callback: (progress: InstallProgress) => void) => void;
+  onInstallProgress: (callback: (progress: InstallProgress) => void) => () => void;
   completeOnboarding: () => void;
   quit: () => void;
   openExternal: (url: string) => Promise<void>;

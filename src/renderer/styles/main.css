@@ -53,6 +53,17 @@ body {
   overflow: hidden;
 }
 
+/* ── Aspect ratio layout overrides ── */
+.preview-container.ar-vertical .screen-video,
+.preview-container.ar-portrait .screen-video {
+  top: auto;
+  transform: none;
+}
+
+.preview-container.ar-square .camera-container {
+  z-index: 10;
+}
+
 /* ── Background canvas — full-size, renders ambient particles behind everything ── */
 .bg-canvas {
   position: absolute;

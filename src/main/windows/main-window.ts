@@ -38,21 +38,28 @@ export function createMainWindow(options?: { show?: boolean }): BrowserWindow {
     console.log(`[renderer] ${message}`);
   });
 
-  // Attempt recovery by reloading if the renderer crashes
+  // Attempt recovery by reloading if the renderer crashes, with a delay
+  // and retry limit to prevent infinite crash loops.
+  let crashCount = 0;
+  const MAX_CRASH_RELOADS = 3;
+  const CRASH_RELOAD_DELAY_MS = 1000;
+
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
     console.error(`Main renderer crashed: ${details.reason}`);
     if (details.reason !== 'clean-exit') {
-      mainWindow?.reload();
+      crashCount++;
+      if (crashCount <= MAX_CRASH_RELOADS) {
+        console.warn(`Reloading main window (attempt ${crashCount}/${MAX_CRASH_RELOADS})...`);
+        setTimeout(() => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.reload();
+          }
+        }, CRASH_RELOAD_DELAY_MS);
+      } else {
+        console.error(`Main renderer crashed ${crashCount} times — giving up auto-reload.`);
+      }
     }
   });
-
-  // Prevent navigation away from the app
-  mainWindow.webContents.on('will-navigate', (event) => {
-    event.preventDefault();
-  });
-
-  // Prevent new window creation
-  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
   mainWindow.on('closed', () => {
     mainWindow = null;

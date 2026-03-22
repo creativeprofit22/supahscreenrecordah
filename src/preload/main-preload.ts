@@ -7,6 +7,7 @@ import type {
   MousePosition,
   MouseClickEvent,
   ActionEvent,
+  AspectRatio,
 } from '../shared/types';
 
 const mainAPI: MainAPI = {
@@ -35,6 +36,10 @@ const mainAPI: MainAPI = {
     ipcRenderer.send(Channels.MAIN_RECORDING_READY);
   },
 
+  sendCountdownTick: (value: number | null) => {
+    ipcRenderer.send(Channels.COUNTDOWN_TICK, value);
+  },
+
   onRecordingStop: (callback) => {
     const handler = () => callback();
     ipcRenderer.removeAllListeners(Channels.MAIN_RECORDING_STOP);
@@ -56,8 +61,8 @@ const mainAPI: MainAPI = {
     return () => { ipcRenderer.removeListener(Channels.MAIN_RECORDING_RESUME, handler); };
   },
 
-  saveRecording: (filePath, buffer) =>
-    ipcRenderer.invoke(Channels.FILE_SAVE_RECORDING, { filePath, buffer }),
+  saveRecording: (filePath, buffer, pauseTimestamps) =>
+    ipcRenderer.invoke(Channels.FILE_SAVE_RECORDING, { filePath, buffer, pauseTimestamps }),
 
   exportRecording: () => ipcRenderer.invoke(Channels.RECORDING_EXPORT),
 
@@ -106,6 +111,25 @@ const mainAPI: MainAPI = {
     ipcRenderer.on(Channels.ACTION_EVENT, handler);
     return () => { ipcRenderer.removeListener(Channels.ACTION_EVENT, handler); };
   },
+
+  onBlurModeToggle: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.removeAllListeners(Channels.BLUR_MODE_TOGGLE);
+    ipcRenderer.on(Channels.BLUR_MODE_TOGGLE, handler);
+    return () => { ipcRenderer.removeListener(Channels.BLUR_MODE_TOGGLE, handler); };
+  },
+
+  onAspectRatioUpdate: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, ratio: AspectRatio) => callback(ratio);
+    ipcRenderer.removeAllListeners(Channels.ASPECT_RATIO_UPDATE);
+    ipcRenderer.on(Channels.ASPECT_RATIO_UPDATE, handler);
+    return () => { ipcRenderer.removeListener(Channels.ASPECT_RATIO_UPDATE, handler); };
+  },
+
+  sendAutosaveChunk: (buffer, extension) =>
+    ipcRenderer.invoke(Channels.AUTOSAVE_CHUNK, { buffer, extension }),
+
+  autosaveCleanup: () => ipcRenderer.invoke(Channels.AUTOSAVE_CLEANUP),
 };
 
 contextBridge.exposeInMainWorld('mainAPI', mainAPI);

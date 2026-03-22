@@ -14,13 +14,17 @@ import {
   isCapturingWindow, setIsCapturingWindow,
   currentMicDeviceId,
   ambientParticlesEnabled,
+  activeAspectRatio, setActiveAspectRatio,
 } from './state';
+import type { AspectRatio } from '../../shared/types';
+import { ASPECT_RATIOS } from '../../shared/feature-types';
 import {
   screenVideo, cameraContainer, cameraVideo,
   previewContainer, idleState, waveformCanvas,
 } from './dom';
 import { positionCameraName } from './overlays/camera-name';
 import { positionSocialsOverlay } from './overlays/socials';
+import { refreshBlurRegionPositions } from './overlays/blur-regions';
 import { startZoomLoop, stopZoomLoop, sizeBgCanvas } from './zoom';
 import { startWaveformCapture, stopWaveformCapture, sizeWaveformCanvas } from './overlays/waveform';
 import type { PreviewSelection } from '../../shared/types';
@@ -40,8 +44,59 @@ export function fitScreenVideo(): void {
   const hasCam = cameraContainer.classList.contains('active');
   const clientW = previewContainer.clientWidth;
   const clientH = previewContainer.clientHeight;
+  const isVertical = activeAspectRatio === '9:16' || activeAspectRatio === '4:5';
 
-  // Camera CSS width = 22% of container; use same padding (24px) for gap
+  if (isVertical && hasCam) {
+    // Vertical/Portrait: screen fills below camera, stacked vertically
+    const camHeightPct = activeAspectRatio === '9:16' ? 0.30 : 0.25;
+    const camH = clientH * camHeightPct + padding; // camera zone height + gap
+    const maxW = clientW - padding * 2;
+    const maxH = clientH - camH - padding;
+    const ratio = natW / natH;
+
+    let w = maxW;
+    let h = w / ratio;
+    if (h > maxH) {
+      h = maxH;
+      w = h * ratio;
+    }
+
+    screenVideo.style.width = `${Math.round(w)}px`;
+    screenVideo.style.height = `${Math.round(h)}px`;
+    // Position below camera — override vertical centering
+    screenVideo.style.top = `${Math.round(camH + padding)}px`;
+    screenVideo.style.transform = 'none';
+    setScreenX(Math.round((clientW - w) / 2));
+    screenVideo.style.left = `${Math.round(screenX)}px`;
+    return;
+  }
+
+  // Reset vertical overrides for landscape/square
+  screenVideo.style.top = '';
+  screenVideo.style.transform = '';
+
+  if (activeAspectRatio === '1:1' && hasCam) {
+    // Square: camera is overlaid in corner — screen fills most of the frame
+    const maxW = clientW - padding * 2;
+    const maxH = clientH - padding * 2;
+    const ratio = natW / natH;
+
+    let w = maxW;
+    let h = w / ratio;
+    if (h > maxH) {
+      h = maxH;
+      w = h * ratio;
+    }
+
+    screenVideo.style.width = `${Math.round(w)}px`;
+    screenVideo.style.height = `${Math.round(h)}px`;
+    setScreenX(Math.round((clientW - w) / 2));
+    clampScreenX();
+    screenVideo.style.left = `${Math.round(screenX)}px`;
+    return;
+  }
+
+  // Default landscape layout — camera CSS width = 22% of container
   const camW = hasCam ? clientW * 0.22 + padding : 0;
   const maxW = clientW - padding * 2 - camW;
   const maxH = clientH - padding * 2;
@@ -240,17 +295,31 @@ export async function stopScreenPreview(): Promise<void> {
 export async function startCameraPreview(deviceId: string): Promise<void> {
   stopCameraPreviewImmediate();
 
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-      audio: false,
-    });
-    setCameraStream(stream);
-    cameraVideo.srcObject = stream;
-    fadeIn(cameraContainer);
-    positionCameraName(positionSocialsOverlay);
-  } catch (err) {
-    console.warn('Camera preview failed:', err);
+  const maxRetries = 3;
+  const retryDelayMs = 500;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false,
+      });
+      setCameraStream(stream);
+      cameraVideo.srcObject = stream;
+      fadeIn(cameraContainer);
+      positionCameraName(positionSocialsOverlay);
+      return;
+    } catch (err) {
+      const msg = err instanceof DOMException ? `${err.name}: ${err.message}` : String(err);
+      // NotReadableError often means the camera is still locked by another
+      // process or renderer — retry after a short delay.
+      if (err instanceof DOMException && err.name === 'NotReadableError' && attempt < maxRetries) {
+        console.warn(`Camera busy, retrying in ${retryDelayMs}ms (attempt ${attempt + 1}/${maxRetries})...`);
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+        continue;
+      }
+      console.warn('Camera preview failed:', msg);
+    }
   }
 }
 
@@ -355,6 +424,7 @@ export function initResizeHandler(): void {
   window.addEventListener('resize', () => {
     fitScreenVideo();
     positionCameraName(positionSocialsOverlay);
+    refreshBlurRegionPositions();
 
     // Resize waveform canvas pixel dimensions to match new container size
     if (waveformCanvas.classList.contains('active')) {
@@ -405,4 +475,75 @@ export function initScreenDrag(): void {
     isDragging = false;
     screenVideo.classList.remove('dragging');
   });
+}
+
+// ---------------------------------------------------------------------------
+// Aspect ratio layout adaptation
+// ---------------------------------------------------------------------------
+
+/**
+ * Apply aspect ratio to preview container.
+ * The preview window doesn't resize — the container uses CSS aspect-ratio
+ * with letterboxing/pillarboxing inside the window. Camera and screen
+ * positions adapt based on the selected ratio.
+ */
+export function applyAspectRatioLayout(ratio: AspectRatio): void {
+  setActiveAspectRatio(ratio);
+  const config = ASPECT_RATIOS[ratio];
+
+  // The preview container always fills the window (no CSS aspect-ratio).
+  // The recording canvas handles the actual output dimensions; the preview
+  // adapts internal layout (camera position, screen fit) to match.
+  void config;
+
+  // For non-landscape ratios, adjust camera container layout
+  // Remove all aspect-ratio-specific classes first
+  previewContainer.classList.remove('ar-landscape', 'ar-vertical', 'ar-square', 'ar-portrait');
+
+  if (ratio === '16:9') {
+    previewContainer.classList.add('ar-landscape');
+    // Default layout — camera on side (22% width, 70% height)
+    cameraContainer.style.width = '';
+    cameraContainer.style.height = '';
+    cameraContainer.style.top = '';
+    cameraContainer.style.left = '';
+    cameraContainer.style.right = '';
+    cameraContainer.style.transform = '';
+    cameraContainer.style.bottom = '';
+  } else if (ratio === '9:16') {
+    previewContainer.classList.add('ar-vertical');
+    // Vertical: camera on TOP (~30% height), full width
+    cameraContainer.style.width = 'calc(100% - 48px)';
+    cameraContainer.style.height = '30%';
+    cameraContainer.style.top = '24px';
+    cameraContainer.style.left = '24px';
+    cameraContainer.style.right = '24px';
+    cameraContainer.style.transform = 'none';
+    cameraContainer.style.bottom = '';
+  } else if (ratio === '1:1') {
+    previewContainer.classList.add('ar-square');
+    // Square: camera in bottom-right corner (small)
+    cameraContainer.style.width = '30%';
+    cameraContainer.style.height = '35%';
+    cameraContainer.style.top = '';
+    cameraContainer.style.left = '';
+    cameraContainer.style.right = '24px';
+    cameraContainer.style.bottom = '24px';
+    cameraContainer.style.transform = 'none';
+  } else if (ratio === '4:5') {
+    previewContainer.classList.add('ar-portrait');
+    // Portrait: camera on top (~25% height), full width
+    cameraContainer.style.width = 'calc(100% - 48px)';
+    cameraContainer.style.height = '25%';
+    cameraContainer.style.top = '24px';
+    cameraContainer.style.left = '24px';
+    cameraContainer.style.right = '24px';
+    cameraContainer.style.transform = 'none';
+    cameraContainer.style.bottom = '';
+  }
+
+  // Re-fit screen and overlays
+  fitScreenVideo();
+  positionCameraName(positionSocialsOverlay);
+  refreshBlurRegionPositions();
 }

@@ -85,4 +85,26 @@ export function registerOverlayHandlers(): void {
       main.webContents.send(Channels.PREVIEW_UPDATE, selection);
     }
   });
+
+  // ── Blur mode toggle (toolbar → main window) ────────────────
+  ipcMain.on(Channels.BLUR_MODE_TOGGLE, (event) => {
+    if (!isValidSender(event)) {
+      return;
+    }
+    const main = getMainWindow();
+    if (main && !main.isDestroyed()) {
+      main.webContents.send(Channels.BLUR_MODE_TOGGLE);
+    }
+  });
+
+  // ── Aspect ratio update (toolbar → main window) ────────────────
+  ipcMain.on(Channels.ASPECT_RATIO_UPDATE, (event, ratio) => {
+    if (!isValidSender(event)) {
+      return;
+    }
+    const main = getMainWindow();
+    if (main && !main.isDestroyed()) {
+      main.webContents.send(Channels.ASPECT_RATIO_UPDATE, ratio);
+    }
+  });
 }

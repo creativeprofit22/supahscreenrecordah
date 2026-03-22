@@ -15,6 +15,7 @@ import {
   stopUiohook,
   resendStateToMainWindow,
 } from './ipc';
+import { checkForRecoveryFiles } from './ipc/autosave';
 import { isValidSender } from './ipc/helpers';
 import { loadConfig } from './store';
 import { Channels } from '../shared/channels';
@@ -27,10 +28,16 @@ let pendingScreenSourceName: string | null = null;
 
 process.on('uncaughtException', (error: Error) => {
   console.error('Uncaught exception:', error);
+  // Give time for the error to be logged, then exit
+  // Exit code 1 indicates abnormal termination
+  app.exit(1);
 });
 
 process.on('unhandledRejection', (reason: unknown) => {
   console.error('Unhandled rejection:', reason);
+  // Give time for the error to be logged, then exit
+  // Exit code 1 indicates abnormal termination
+  app.exit(1);
 });
 
 // Register the custom 'app' scheme before the app is ready — required by Chromium.
@@ -125,6 +132,9 @@ app
     createMainWindow();
     createToolbarWindow();
 
+    // Check for crash recovery files from a previous session
+    void checkForRecoveryFiles();
+
     app.on('activate', () => {
       const mainWin = getMainWindow();
       if (mainWin) {
@@ -180,6 +190,25 @@ app.on('before-quit', () => {
   } catch {
     // ignore tmpdir read failure
   }
+});
+
+// Apply security restrictions globally to ALL webContents (current and future).
+// This is safer than per-window handlers because it covers dynamically created
+// webContents automatically — no window can bypass these restrictions.
+app.on('web-contents-created', (_event, contents) => {
+  // Prevent navigation away from the app
+  contents.on('will-navigate', (event) => {
+    event.preventDefault();
+  });
+
+  // Prevent new window creation
+  contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+
+  // Block <webview> tag attachment (defense-in-depth — webviewTag defaults to
+  // false in modern Electron, but explicitly blocking it prevents any bypass)
+  contents.on('will-attach-webview', (event) => {
+    event.preventDefault();
+  });
 });
 
 app.on('window-all-closed', () => {

@@ -56,4 +56,29 @@ export const Channels = {
   ONBOARDING_INSTALL_DEPENDENCY: 'onboarding:install-dependency',
   ONBOARDING_INSTALL_PROGRESS: 'onboarding:install-progress',
   ONBOARDING_COMPLETE: 'onboarding:complete',
+  // Blur regions
+  BLUR_MODE_TOGGLE: 'blur:mode-toggle',
+  // Aspect ratio
+  ASPECT_RATIO_UPDATE: 'aspect-ratio:update',
+  // Countdown
+  COUNTDOWN_TICK: 'countdown:tick',
+  // Watermark
+  WATERMARK_SELECT_FILE: 'watermark:select-file',
+  // Captions
+  CAPTION_PROGRESS: 'caption:progress',
+  // Chapters
+  CHAPTERS_READY: 'chapters:ready',
+  // Thumbnail review
+  THUMBNAIL_OPEN: 'thumbnail:open',
+  THUMBNAIL_GENERATE: 'thumbnail:generate',
+  THUMBNAIL_SAVE: 'thumbnail:save',
+  THUMBNAIL_SKIP: 'thumbnail:skip',
+  THUMBNAIL_PROGRESS: 'thumbnail:progress',
+  THUMBNAIL_EXTRACT_FRAMES: 'thumbnail:extract-frames',
+  THUMBNAIL_CLOSE: 'thumbnail:close',
+  // Export platforms
+  EXPORT_PLATFORMS: 'export:platforms',
+  // Auto-save (crash recovery)
+  AUTOSAVE_CHUNK: 'autosave:chunk',
+  AUTOSAVE_CLEANUP: 'autosave:cleanup',
 } as const;

@@ -34,13 +34,28 @@ export function createOnboardingWindow(): BrowserWindow {
 
   onboardingWindow.loadURL('app://./pages/onboarding.html');
 
-  // Prevent navigation away from the app
-  onboardingWindow.webContents.on('will-navigate', (event) => {
-    event.preventDefault();
-  });
+  // Attempt recovery by reloading if the renderer crashes, with a delay
+  // and retry limit to prevent infinite crash loops.
+  let crashCount = 0;
+  const MAX_CRASH_RELOADS = 3;
+  const CRASH_RELOAD_DELAY_MS = 1000;
 
-  // Prevent new window creation
-  onboardingWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  onboardingWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error(`Onboarding renderer crashed: ${details.reason}`);
+    if (details.reason !== 'clean-exit') {
+      crashCount++;
+      if (crashCount <= MAX_CRASH_RELOADS) {
+        console.warn(`Reloading onboarding window (attempt ${crashCount}/${MAX_CRASH_RELOADS})...`);
+        setTimeout(() => {
+          if (onboardingWindow && !onboardingWindow.isDestroyed()) {
+            onboardingWindow.reload();
+          }
+        }, CRASH_RELOAD_DELAY_MS);
+      } else {
+        console.error(`Onboarding renderer crashed ${crashCount} times — giving up auto-reload.`);
+      }
+    }
+  });
 
   onboardingWindow.on('closed', () => {
     onboardingWindow = null;

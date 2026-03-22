@@ -40,6 +40,30 @@ const DEFAULT_OVERLAY = {
   ctaText: '',
   ctaIcon: '',
   ctaIntervalMs: 180000,
+  blurRegions: [],
+  aspectRatio: '16:9',
+  cursorEffect: { trail: 'none', clickRipple: false, clickRippleColor: '#ffffff' },
+  spotlight: false,
+  clickSounds: false,
+  progressBar: { enabled: false, position: 'bottom', color: '#ffffff', height: 4 },
+  watermark: { enabled: false, imagePath: '', position: 'bottom-right', opacity: 0.5, size: 10 },
+  webcamBlur: false,
+  webcamBlurIntensity: 10,
+  introOutro: {
+    introEnabled: false,
+    introTemplate: 'fade-title',
+    introText: '',
+    introSubtext: '',
+    introDuration: 3,
+    outroEnabled: false,
+    outroTemplate: 'fade-title',
+    outroText: '',
+    outroSubtext: '',
+    outroDuration: 3,
+  },
+  countdownEnabled: true,
+  perspective: false,
+  perspectiveIntensity: 2,
 };
 
 const DEFAULT_CONFIG = {
@@ -48,6 +72,11 @@ const DEFAULT_CONFIG = {
   micLabel: '',
   layout: 'camera-right',
   overlay: DEFAULT_OVERLAY,
+  caption: { enabled: false, style: 'minimal', position: 'bottom', fontSize: 24, powerWords: false },
+  silenceRemoval: { enabled: false, minSilenceMs: 1500, keepPaddingMs: 150, removeFillers: false },
+  thumbnail: { enabled: false, platforms: [] },
+  exportPlatforms: [],
+  autoSaveChunks: true,
 };
 
 describe('Config Store Integration', () => {

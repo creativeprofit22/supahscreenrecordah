@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { Channels } from '../shared/channels';
-import type { ToolbarAPI, PreviewSelection, RecordingState, AppConfig } from '../shared/types';
+import type { ToolbarAPI, PreviewSelection, RecordingState, AppConfig, CaptionStage, ExportPlatform } from '../shared/types';
 
 const toolbarAPI: ToolbarAPI = {
   getScreens: () => ipcRenderer.invoke(Channels.DEVICES_GET_SCREENS),
@@ -14,9 +14,17 @@ const toolbarAPI: ToolbarAPI = {
   resumeRecording: () => ipcRenderer.invoke(Channels.RECORDING_RESUME),
 
   onStateUpdate: (callback) => {
+    ipcRenderer.removeAllListeners(Channels.TOOLBAR_STATE_UPDATE);
     const handler = (_event: Electron.IpcRendererEvent, state: RecordingState) => callback(state);
     ipcRenderer.on(Channels.TOOLBAR_STATE_UPDATE, handler);
     return () => { ipcRenderer.removeListener(Channels.TOOLBAR_STATE_UPDATE, handler); };
+  },
+
+  onCaptionProgress: (callback) => {
+    ipcRenderer.removeAllListeners(Channels.CAPTION_PROGRESS);
+    const handler = (_event: Electron.IpcRendererEvent, stage: CaptionStage) => callback(stage);
+    ipcRenderer.on(Channels.CAPTION_PROGRESS, handler);
+    return () => { ipcRenderer.removeListener(Channels.CAPTION_PROGRESS, handler); };
   },
 
   sendPreviewUpdate: (selection) => {
@@ -37,6 +45,23 @@ const toolbarAPI: ToolbarAPI = {
 
   quitApp: () => {
     ipcRenderer.send(Channels.APP_QUIT);
+  },
+
+  toggleBlurMode: () => {
+    ipcRenderer.send(Channels.BLUR_MODE_TOGGLE);
+  },
+
+  sendAspectRatioUpdate: (ratio) => {
+    ipcRenderer.send(Channels.ASPECT_RATIO_UPDATE, ratio);
+  },
+
+  setExportPlatforms: (platforms) => ipcRenderer.invoke(Channels.EXPORT_PLATFORMS, platforms),
+
+  onChaptersReady: (callback) => {
+    ipcRenderer.removeAllListeners(Channels.CHAPTERS_READY);
+    const handler = (_event: Electron.IpcRendererEvent, chapters: any) => callback(chapters);
+    ipcRenderer.on(Channels.CHAPTERS_READY, handler);
+    return () => { ipcRenderer.removeListener(Channels.CHAPTERS_READY, handler); };
   },
 };
 

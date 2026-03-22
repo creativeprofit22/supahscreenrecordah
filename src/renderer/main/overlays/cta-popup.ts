@@ -17,7 +17,7 @@ const CTA_SLIDE_DURATION_MS = 600;   // matches CSS transition
 // ---------------------------------------------------------------------------
 // Audio
 // ---------------------------------------------------------------------------
-const ctaNotifAudio = new Audio('assets/notif.mp3');
+const ctaNotifAudio = new Audio('../assets/notif.mp3');
 ctaNotifAudio.volume = 0.6;
 
 // ---------------------------------------------------------------------------

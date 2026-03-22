@@ -49,14 +49,6 @@ export function createToolbarWindow(): BrowserWindow {
     }
   });
 
-  // Prevent navigation away from the app
-  toolbarWindow.webContents.on('will-navigate', (event) => {
-    event.preventDefault();
-  });
-
-  // Prevent new window creation
-  toolbarWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-
   toolbarWindow.on('closed', () => {
     toolbarWindow = null;
   });

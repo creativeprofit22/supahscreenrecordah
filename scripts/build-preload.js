@@ -2,12 +2,12 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const preloads = ['main-preload', 'toolbar-preload', 'edit-modal-preload', 'onboarding-preload'];
+const preloads = ['main-preload', 'toolbar-preload', 'edit-modal-preload', 'onboarding-preload', 'thumbnail-preload'];
 const outDir = 'dist/preload';
 
 for (const name of preloads) {
   execSync(
-    `npx tsdown src/preload/${name}.ts --format cjs --out-dir ${outDir} --no-dts --no-clean --external electron`,
+    `npx tsdown src/preload/${name}.ts --format cjs --out-dir ${outDir} --no-dts --no-clean --deps.neverBundle electron`,
     { stdio: 'inherit' },
   );
 }

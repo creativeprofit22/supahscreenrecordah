@@ -1,5 +1,5 @@
-// NOTE: These functions are duplicated in renderer/main.ts which has its own local copies.
-// This module exists only for unit testability. Keep in sync with the renderer versions.
+// Cinema filter definitions and camera enhancement utilities.
+// Consumed by renderer (via overlays/cinema-filter.ts) and unit tests.
 
 interface CameraEnhancement {
   brightness: number;

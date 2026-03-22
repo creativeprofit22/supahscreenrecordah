@@ -16,8 +16,9 @@ export function registerRecordingHandlers(): void {
     if (!isValidSender(event)) {
       throw new Error('Unauthorized IPC sender');
     }
-    recordingState = { isRecording: true, isPaused: false };
-    sendStateToToolbar(recordingState);
+    // Don't set isRecording yet — the main renderer may run a countdown first.
+    // Send a countdown state so the toolbar knows something is happening.
+    sendStateToToolbar({ isRecording: false, isPaused: false, countdownValue: null });
     // Forward to main window so it can start canvas-based recording
     const main = getMainWindow();
     if (main && !main.isDestroyed()) {
@@ -25,6 +26,21 @@ export function registerRecordingHandlers(): void {
       // Window is hidden when renderer signals MAIN_RECORDING_READY
       // (after getUserMedia has acquired the mic — hiding before that
       // causes Chromium to deliver a silent audio track)
+    }
+  });
+
+  // Countdown tick from main renderer — forward to toolbar
+  ipcMain.on(Channels.COUNTDOWN_TICK, (event, value: number | null) => {
+    if (!isValidSender(event)) {
+      return;
+    }
+    if (value === null) {
+      // Countdown finished — recording is now active
+      recordingState = { isRecording: true, isPaused: false };
+      sendStateToToolbar(recordingState);
+    } else {
+      // Countdown in progress
+      sendStateToToolbar({ isRecording: false, isPaused: false, countdownValue: value });
     }
   });
 

@@ -34,7 +34,36 @@ const DEFAULT_CONFIG: AppConfig = {
     ctaText: '',
     ctaIcon: '',
     ctaIntervalMs: 180000,
+    blurRegions: [],
+    aspectRatio: '16:9',
+    cursorEffect: { trail: 'none', clickRipple: false, clickRippleColor: '#ffffff' },
+    spotlight: false,
+    clickSounds: false,
+    progressBar: { enabled: false, position: 'bottom', color: '#ffffff', height: 4 },
+    watermark: { enabled: false, imagePath: '', position: 'bottom-right', opacity: 0.5, size: 10 },
+    webcamBlur: false,
+    webcamBlurIntensity: 10,
+    introOutro: {
+      introEnabled: false,
+      introTemplate: 'fade-title',
+      introText: '',
+      introSubtext: '',
+      introDuration: 3,
+      outroEnabled: false,
+      outroTemplate: 'fade-title',
+      outroText: '',
+      outroSubtext: '',
+      outroDuration: 3,
+    },
+    countdownEnabled: true,
+    perspective: false,
+    perspectiveIntensity: 2,
   },
+  caption: { enabled: false, style: 'minimal', position: 'bottom', fontSize: 24, powerWords: false },
+  silenceRemoval: { enabled: false, minSilenceMs: 1500, keepPaddingMs: 150, removeFillers: false },
+  thumbnail: { enabled: false, platforms: [] },
+  exportPlatforms: [],
+  autoSaveChunks: true,
 };
 
 let config: AppConfig = { ...DEFAULT_CONFIG };
@@ -58,6 +87,22 @@ export function loadConfig(): AppConfig {
             ...DEFAULT_CONFIG.overlay.socials,
             ...((parsed.overlay ?? {}).socials ?? {}),
           },
+          cursorEffect: {
+            ...DEFAULT_CONFIG.overlay.cursorEffect,
+            ...((parsed.overlay ?? {}).cursorEffect ?? {}),
+          },
+          progressBar: {
+            ...DEFAULT_CONFIG.overlay.progressBar,
+            ...((parsed.overlay ?? {}).progressBar ?? {}),
+          },
+          watermark: {
+            ...DEFAULT_CONFIG.overlay.watermark,
+            ...((parsed.overlay ?? {}).watermark ?? {}),
+          },
+          introOutro: {
+            ...DEFAULT_CONFIG.overlay.introOutro,
+            ...((parsed.overlay ?? {}).introOutro ?? {}),
+          },
         },
       };
     }
@@ -70,11 +115,41 @@ export function loadConfig(): AppConfig {
 
 export async function saveConfig(partial: Partial<AppConfig>): Promise<void> {
   if (partial.overlay) {
-    config.overlay = { ...config.overlay, ...partial.overlay };
+    const po = partial.overlay;
+    config.overlay = {
+      ...config.overlay,
+      ...po,
+      cameraEnhancement: {
+        ...config.overlay.cameraEnhancement,
+        ...(po.cameraEnhancement ?? {}),
+      },
+      socials: {
+        ...config.overlay.socials,
+        ...(po.socials ?? {}),
+      },
+      cursorEffect: {
+        ...config.overlay.cursorEffect,
+        ...(po.cursorEffect ?? {}),
+      },
+      progressBar: {
+        ...config.overlay.progressBar,
+        ...(po.progressBar ?? {}),
+      },
+      watermark: {
+        ...config.overlay.watermark,
+        ...(po.watermark ?? {}),
+      },
+      introOutro: {
+        ...config.overlay.introOutro,
+        ...(po.introOutro ?? {}),
+      },
+    };
   }
   config = { ...config, ...partial, overlay: config.overlay };
   try {
-    await fs.promises.writeFile(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
+    const tmpFile = CONFIG_FILE + '.tmp';
+    await fs.promises.writeFile(tmpFile, JSON.stringify(config, null, 2), 'utf-8');
+    await fs.promises.rename(tmpFile, CONFIG_FILE);
   } catch (err) {
     console.warn('Failed to save config:', err);
   }

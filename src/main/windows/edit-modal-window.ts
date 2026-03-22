@@ -46,14 +46,6 @@ export function createEditModalWindow(): BrowserWindow {
     }
   });
 
-  // Prevent navigation away from the app
-  editModalWindow.webContents.on('will-navigate', (event) => {
-    event.preventDefault();
-  });
-
-  // Prevent new window creation
-  editModalWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-
   editModalWindow.on('closed', () => {
     editModalWindow = null;
   });

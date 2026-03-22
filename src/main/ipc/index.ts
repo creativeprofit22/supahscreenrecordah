@@ -10,6 +10,10 @@ import { registerMouseHandlers } from './mouse';
 import { registerConfigHandlers } from './config';
 import { registerAppControlHandlers } from './app-control';
 import { registerOnboardingHandlers } from './onboarding';
+import { registerWatermarkHandlers } from './watermark';
+import { registerThumbnailHandlers } from './thumbnail';
+import { registerExportPlatformsHandler } from './export-platforms';
+import { registerAutosaveHandlers } from './autosave';
 
 export function registerAllHandlers(): void {
   registerDeviceHandlers();
@@ -21,6 +25,10 @@ export function registerAllHandlers(): void {
   registerConfigHandlers();
   registerAppControlHandlers();
   registerOnboardingHandlers();
+  registerWatermarkHandlers();
+  registerThumbnailHandlers();
+  registerExportPlatformsHandler();
+  registerAutosaveHandlers();
 }
 
 // For main/index.ts backward compat:

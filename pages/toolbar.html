@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; media-src 'self' blob: mediastream:; img-src 'self' data: blob:; connect-src 'self'"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; media-src 'self' blob: mediastream:; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
     />
     <title>supahscreenrecordah -- Toolbar</title>
     <link rel="stylesheet" href="../dist/renderer/styles/toolbar.css" />
@@ -48,6 +48,15 @@
 
         <div class="toolbar-divider"></div>
 
+        <select id="aspect-ratio-select" class="device-select aspect-ratio-select" title="Aspect ratio">
+          <option value="16:9">⿖ 16:9</option>
+          <option value="9:16">⿗ 9:16</option>
+          <option value="1:1">⊡ 1:1</option>
+          <option value="4:5">⿘ 4:5</option>
+        </select>
+
+        <div class="toolbar-divider"></div>
+
         <button id="edit-btn" class="toolbar-btn edit" title="Edit overlay settings">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path
@@ -57,6 +66,16 @@
               stroke-linecap="round"
               stroke-linejoin="round"
             />
+          </svg>
+        </button>
+
+        <button id="blur-btn" class="toolbar-btn blur" title="Toggle blur regions">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <rect x="1" y="1" width="12" height="12" rx="2"
+              stroke="currentColor" stroke-width="1.4" stroke-dasharray="2 2" />
+            <circle cx="5" cy="5" r="1.5" fill="currentColor" opacity="0.4" />
+            <circle cx="9" cy="7" r="2" fill="currentColor" opacity="0.3" />
+            <circle cx="6" cy="10" r="1" fill="currentColor" opacity="0.5" />
           </svg>
         </button>
 

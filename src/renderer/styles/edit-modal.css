@@ -538,3 +538,106 @@ body {
   border-color: var(--blue);
   background: rgba(137, 180, 250, 0.15);
 }
+
+/* ---------------------------------------------------------------------------
+   Progress bar sub-options
+   --------------------------------------------------------------------------- */
+
+.sub-options {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--glass-element-bg, rgba(255, 255, 255, 0.04));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.radio-row {
+  display: flex;
+  gap: 16px;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-secondary, #aaa);
+  cursor: pointer;
+}
+
+.field-radio {
+  accent-color: var(--blue, #89b4fa);
+  margin: 0;
+}
+
+.field-color {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.field-color::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.field-color::-webkit-color-swatch {
+  border: none;
+  border-radius: 2px;
+}
+
+.field-label-sm {
+  font-size: 11px;
+  color: var(--text-secondary, #aaa);
+  min-width: 40px;
+}
+
+/* Export platforms chip selector */
+.export-platforms-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 10px;
+}
+
+.export-platforms-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.platform-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  user-select: none;
+}
+
+.platform-chip:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.platform-chip:has(.platform-checkbox:checked) {
+  background: rgba(100, 160, 255, 0.2);
+  border-color: rgba(100, 160, 255, 0.5);
+}
+
+.platform-checkbox {
+  display: none;
+}
+
+.chip-label {
+  font-size: 11px;
+  color: var(--text-primary, #ddd);
+  white-space: nowrap;
+}
