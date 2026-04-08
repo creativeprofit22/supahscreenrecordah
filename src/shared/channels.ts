@@ -86,4 +86,8 @@ export const Channels = {
   // Review screen analysis
   REVIEW_ANALYZE: 'review:analyze',
   REVIEW_EXPORT: 'review:export',
+  // Whisper check / install from review screen
+  WHISPER_CHECK: 'whisper:check',
+  WHISPER_INSTALL: 'whisper:install',
+  WHISPER_INSTALL_PROGRESS: 'whisper:install-progress',
 } as const;

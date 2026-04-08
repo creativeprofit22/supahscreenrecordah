@@ -8,6 +8,7 @@ import { isValidSavePath } from '../../shared/paths';
 import { getPlaybackTempFile } from './playback';
 import { extractWaveform } from '../services/waveform';
 import { transcribeWithWhisper } from '../services/whisper-transcribe';
+import { findWhisper, findWhisperModel, installWhisper, installWhisperModel } from '../services/whisper';
 import { detectSilences, detectFillers } from '../services/assemblyai/silence';
 import { cutSilenceRegions } from '../services/ffmpeg/silence-cut';
 import { postProcessRecording } from '../services/ffmpeg';
@@ -175,5 +176,34 @@ export function registerReviewHandlers(): void {
 
     const result: ReviewAnalysisResult = { waveform, segments, words };
     return result;
+  });
+
+  // --- Check whisper availability -------------------------------------------
+  ipcMain.handle(Channels.WHISPER_CHECK, async (event) => {
+    if (!isValidSender(event)) {
+      throw new Error('Unauthorized IPC sender');
+    }
+    const [binary, model] = await Promise.all([findWhisper(), findWhisperModel()]);
+    return { binary: binary !== null, model: model !== null };
+  });
+
+  // --- Install whisper binary + model ----------------------------------------
+  ipcMain.handle(Channels.WHISPER_INSTALL, async (event) => {
+    if (!isValidSender(event)) {
+      throw new Error('Unauthorized IPC sender');
+    }
+    const sendProgress = (progress: import('../../shared/activation-types').InstallProgress) => {
+      event.sender.send(Channels.WHISPER_INSTALL_PROGRESS, progress);
+    };
+
+    const needsBinary = (await findWhisper()) === null;
+    const needsModel = (await findWhisperModel()) === null;
+
+    if (needsBinary) {
+      await installWhisper(sendProgress);
+    }
+    if (needsModel) {
+      await installWhisperModel(sendProgress);
+    }
   });
 }

@@ -4,7 +4,7 @@
 import { screenStream } from './state';
 import {
   playbackContainer, playbackVideo,
-  playbackExportBtn, playbackExitBtn,
+  playbackExportBtn, playbackExitBtn, playbackSkipBtn,
   processingOverlay, processingSub,
   previewContainer,
   autoTrimBtn, undoAllBtn,
@@ -232,4 +232,72 @@ export function initPlaybackHandlers(): void {
   undoAllBtn.addEventListener('click', () => {
     undoAll();
   });
+
+  // --- Skip button — export original blob without review cuts ----------------
+  playbackSkipBtn.addEventListener('click', () => {
+    void skipReview();
+  });
+
+  // --- Keyboard shortcuts (active when playback container is visible) --------
+  document.addEventListener('keydown', (e) => {
+    if (playbackContainer.classList.contains('hidden')) return;
+
+    // Don't capture shortcuts when focused on input elements
+    const tag = (e.target as HTMLElement)?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+    switch (e.key) {
+      case ' ':
+        e.preventDefault();
+        if (playbackVideo.paused) {
+          void playbackVideo.play();
+        } else {
+          playbackVideo.pause();
+        }
+        break;
+      case 'ArrowLeft':
+        e.preventDefault();
+        playbackVideo.currentTime = Math.max(0, playbackVideo.currentTime - 5);
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        playbackVideo.currentTime = Math.min(playbackVideo.duration, playbackVideo.currentTime + 5);
+        break;
+      case 'Escape':
+        e.preventDefault();
+        exitPlaybackMode();
+        break;
+      case 'Enter':
+        e.preventDefault();
+        playbackExportBtn.click();
+        break;
+    }
+  });
+}
+
+async function skipReview(): Promise<void> {
+  if (!pendingRecordingBlob) return;
+
+  const filePath = await window.mainAPI.exportRecording();
+  if (!filePath) return;
+
+  playbackContainer.classList.add('hidden');
+  processingSub.textContent = 'Preparing file for export...';
+  processingOverlay.classList.remove('hidden');
+
+  try {
+    processingSub.textContent = 'Enhancing audio and finalizing...';
+    const arrayBuffer = await pendingRecordingBlob.arrayBuffer();
+    await window.mainAPI.saveRecording(
+      filePath,
+      arrayBuffer,
+      pendingPauseTimestamps.length > 0 ? pendingPauseTimestamps : undefined,
+    );
+    console.log('[rec] Skip export complete:', filePath);
+  } catch (err) {
+    console.error('Failed to skip-export recording:', err);
+  }
+
+  processingOverlay.classList.add('hidden');
+  exitPlaybackMode();
 }

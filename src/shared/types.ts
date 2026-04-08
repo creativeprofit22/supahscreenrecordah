@@ -153,6 +153,9 @@ export interface MainAPI {
   autosaveCleanup: () => Promise<void>;
   analyzeForReview: () => Promise<ReviewAnalysisResult>;
   exportWithSegments: (filePath: string, buffer: ArrayBuffer, keepSegments: Array<{ start: number; end: number }>) => Promise<void>;
+  checkWhisper: () => Promise<{ binary: boolean; model: boolean }>;
+  installWhisper: () => Promise<void>;
+  onWhisperInstallProgress: (callback: (progress: import('./activation-types').InstallProgress) => void) => () => void;
 }
 
 // ToolbarAPI

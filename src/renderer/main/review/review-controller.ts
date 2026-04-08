@@ -2,7 +2,7 @@
 // ---------------------------------------------------------------------------
 
 import {
-  playbackVideo,
+  playbackVideo, playbackContainer,
   processingOverlay, processingSub,
   reviewActionsBar, reviewTimeline, timelineCanvas, timelineCtx,
 } from '../dom';
@@ -22,6 +22,8 @@ let state: ReviewState | null = null;
 let rafId: number | null = null;
 let destroyed = false;
 let hoverState: HitState = { hoverSegmentId: null, hoverEdge: null, hoverPlayhead: false };
+let whisperBanner: HTMLDivElement | null = null;
+let unsubWhisperProgress: (() => void) | null = null;
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -38,8 +40,20 @@ export async function initReview(): Promise<void> {
   processingSub.textContent = 'Analyzing audio...';
   processingOverlay.classList.remove('hidden');
 
+  // Start a 30s timer for "Still working..." subtext
+  const stillWorkingTimer = setTimeout(() => {
+    if (!destroyed) {
+      processingSub.textContent = 'Still working...';
+    }
+  }, 30_000);
+
+  // Show skeleton loader on the timeline while analysis runs
+  reviewTimeline.classList.add('visible', 'skeleton');
+
   try {
     const result = await window.mainAPI.analyzeForReview();
+
+    clearTimeout(stillWorkingTimer);
 
     if (destroyed) return; // user exited during analysis
 
@@ -52,6 +66,10 @@ export async function initReview(): Promise<void> {
     };
 
     console.log('[review-controller] Analysis complete — segments:', state.segments.length, 'duration:', state.duration);
+
+    // Remove skeleton, add slide-up animation
+    reviewTimeline.classList.remove('skeleton');
+    reviewTimeline.classList.add('slide-up');
 
     // Size the timeline canvas to its container
     sizeCanvas();
@@ -73,9 +91,15 @@ export async function initReview(): Promise<void> {
 
     // Show review UI
     reviewActionsBar.classList.add('visible');
-    reviewTimeline.classList.add('visible');
+
+    // If no segments (whisper missing or no speech), show whisper install banner
+    if (result.segments.length === 0) {
+      showWhisperBanner();
+    }
   } catch (err) {
+    clearTimeout(stillWorkingTimer);
     console.warn('[review-controller] Analysis failed:', err);
+    reviewTimeline.classList.remove('skeleton');
   } finally {
     if (!destroyed) {
       processingOverlay.classList.add('hidden');
@@ -85,6 +109,74 @@ export async function initReview(): Promise<void> {
   // Start render loop even if analysis failed (shows waveform-only if available)
   if (!destroyed) {
     startRenderLoop();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Whisper install banner
+// ---------------------------------------------------------------------------
+
+function showWhisperBanner(): void {
+  if (whisperBanner) return;
+
+  whisperBanner = document.createElement('div');
+  whisperBanner.className = 'whisper-banner';
+  whisperBanner.innerHTML = `
+    <span class="whisper-banner-text">Install Whisper for auto-trim</span>
+    <button class="whisper-banner-btn">Install</button>
+    <div class="whisper-banner-progress hidden">
+      <div class="whisper-banner-progress-bar"></div>
+    </div>
+  `;
+
+  const btn = whisperBanner.querySelector('.whisper-banner-btn') as HTMLButtonElement;
+  const progressContainer = whisperBanner.querySelector('.whisper-banner-progress') as HTMLDivElement;
+  const progressBar = whisperBanner.querySelector('.whisper-banner-progress-bar') as HTMLDivElement;
+
+  btn.addEventListener('click', () => {
+    btn.classList.add('hidden');
+    progressContainer.classList.remove('hidden');
+
+    unsubWhisperProgress = window.mainAPI.onWhisperInstallProgress((progress) => {
+      if (progress.status === 'downloading' && progress.progress !== undefined) {
+        progressBar.style.width = `${progress.progress}%`;
+      } else if (progress.status === 'installing') {
+        progressBar.style.width = '100%';
+      } else if (progress.status === 'error') {
+        btn.classList.remove('hidden');
+        progressContainer.classList.add('hidden');
+        console.warn('[review-controller] Whisper install failed:', progress.error);
+      }
+    });
+
+    void window.mainAPI.installWhisper().then(async () => {
+      if (unsubWhisperProgress) { unsubWhisperProgress(); unsubWhisperProgress = null; }
+      removeWhisperBanner();
+      // Re-run analysis after install
+      if (!destroyed) {
+        destroyTimelineInteraction();
+        destroyPlaybackSkipping();
+        reviewActionsBar.classList.remove('visible');
+        reviewTimeline.classList.remove('visible', 'slide-up');
+        if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+        state = null;
+        await initReview();
+      }
+    });
+  });
+
+  // Insert banner before the review timeline
+  playbackContainer.insertBefore(whisperBanner, reviewTimeline);
+}
+
+function removeWhisperBanner(): void {
+  if (whisperBanner) {
+    whisperBanner.remove();
+    whisperBanner = null;
+  }
+  if (unsubWhisperProgress) {
+    unsubWhisperProgress();
+    unsubWhisperProgress = null;
   }
 }
 
@@ -197,6 +289,7 @@ export function destroyReview(): void {
 
   destroyPlaybackSkipping();
   destroyTimelineInteraction();
+  removeWhisperBanner();
 
   if (rafId !== null) {
     cancelAnimationFrame(rafId);
@@ -207,7 +300,7 @@ export function destroyReview(): void {
   hoverState = { hoverSegmentId: null, hoverEdge: null, hoverPlayhead: false };
 
   reviewActionsBar.classList.remove('visible');
-  reviewTimeline.classList.remove('visible');
+  reviewTimeline.classList.remove('visible', 'skeleton', 'slide-up');
 }
 
 // ---------------------------------------------------------------------------

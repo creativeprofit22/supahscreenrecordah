@@ -142,6 +142,16 @@ const mainAPI: MainAPI = {
 
   exportWithSegments: (filePath, buffer, keepSegments) =>
     ipcRenderer.invoke(Channels.REVIEW_EXPORT, { filePath, buffer, keepSegments }),
+
+  checkWhisper: () => ipcRenderer.invoke(Channels.WHISPER_CHECK),
+
+  installWhisper: () => ipcRenderer.invoke(Channels.WHISPER_INSTALL),
+
+  onWhisperInstallProgress: (callback: (progress: import('../shared/activation-types').InstallProgress) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, progress: import('../shared/activation-types').InstallProgress) => callback(progress);
+    ipcRenderer.on(Channels.WHISPER_INSTALL_PROGRESS, handler);
+    return () => { ipcRenderer.removeListener(Channels.WHISPER_INSTALL_PROGRESS, handler); };
+  },
 };
 
 contextBridge.exposeInMainWorld('mainAPI', mainAPI);
