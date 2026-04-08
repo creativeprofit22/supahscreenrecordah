@@ -1,4 +1,4 @@
-// Timeline Interaction — mouse events for playhead scrub + segment toggle
+// Timeline Interaction — mouse events for playhead scrub + segment toggle + edge drag
 // ---------------------------------------------------------------------------
 
 import type { ReviewSegment } from '../../../shared/review-types';
@@ -16,14 +16,18 @@ export interface HitState {
 
 interface DragState {
   active: boolean;
-  type: 'playhead' | null;
+  type: 'playhead' | 'edge' | null;
   startX: number;
   startY: number;
   engaged: boolean; // past 5px threshold
+  // Edge-drag specific
+  segmentId: string | null;
+  edge: 'start' | 'end' | null;
 }
 
 type SeekFn = (time: number) => void;
 type ToggleFn = (segmentId: string) => void;
+type ResizeFn = (segmentId: string, edge: 'start' | 'end', newTime: number) => void;
 type HitUpdateFn = (hit: HitState) => void;
 
 // ---------------------------------------------------------------------------
@@ -33,6 +37,8 @@ type HitUpdateFn = (hit: HitState) => void;
 const EDGE_HIT_PX = 6;
 const PLAYHEAD_HIT_PX = 6;
 const DRAG_THRESHOLD_PX = 5;
+const SNAP_PX = 8;
+const MIN_SEGMENT_DURATION = 0.1;
 
 // ---------------------------------------------------------------------------
 // Module state
@@ -44,10 +50,12 @@ let getDuration: (() => number) | null = null;
 let getPlayhead: (() => number) | null = null;
 let onSeek: SeekFn | null = null;
 let onToggle: ToggleFn | null = null;
+let onResize: ResizeFn | null = null;
 let onHitUpdate: HitUpdateFn | null = null;
 
-let drag: DragState = { active: false, type: null, startX: 0, startY: 0, engaged: false };
+let drag: DragState = { active: false, type: null, startX: 0, startY: 0, engaged: false, segmentId: null, edge: null };
 let currentHit: HitState = { hoverSegmentId: null, hoverEdge: null, hoverPlayhead: false };
+let snapTime: number | null = null;
 
 // ---------------------------------------------------------------------------
 // Hit testing
@@ -119,15 +127,82 @@ function updateCursor(hit: HitState): void {
 // Mouse handlers
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Snap helpers
+// ---------------------------------------------------------------------------
+
+function computeSnap(
+  targetTime: number,
+  dragSegId: string,
+  dragEdge: 'start' | 'end',
+): number | null {
+  const segments = getSegments!();
+  const duration = getDuration!();
+  const playhead = getPlayhead!();
+  const rect = canvas!.getBoundingClientRect();
+  const w = rect.width;
+
+  const snapThresholdTime = SNAP_PX / (w / duration);
+
+  // Collect candidate snap times: all segment edges except the one being dragged
+  const candidates: number[] = [playhead];
+  for (const seg of segments) {
+    if (seg.type === 'speech') continue;
+    if (seg.id === dragSegId && dragEdge === 'start') {
+      candidates.push(seg.end); // can snap to own other edge? skip for sanity
+    } else if (seg.id === dragSegId && dragEdge === 'end') {
+      candidates.push(seg.start);
+    } else {
+      candidates.push(seg.start, seg.end);
+    }
+  }
+
+  let bestDist = Infinity;
+  let bestTime: number | null = null;
+  for (const t of candidates) {
+    const dist = Math.abs(targetTime - t);
+    if (dist < snapThresholdTime && dist < bestDist) {
+      bestDist = dist;
+      bestTime = t;
+    }
+  }
+  return bestTime;
+}
+
+/** Get current snap indicator time (or null). Read by render loop. */
+export function getSnapIndicatorTime(): number | null {
+  return snapTime;
+}
+
+// ---------------------------------------------------------------------------
+// Mouse handlers
+// ---------------------------------------------------------------------------
+
 function handleMouseDown(e: MouseEvent): void {
   const hit = hitTest(e.offsetX);
-  drag = {
-    active: true,
-    type: hit.hoverPlayhead ? 'playhead' : null,
-    startX: e.offsetX,
-    startY: e.offsetY,
-    engaged: false,
-  };
+
+  if (hit.hoverEdge && hit.hoverSegmentId) {
+    // Start edge drag
+    drag = {
+      active: true,
+      type: 'edge',
+      startX: e.offsetX,
+      startY: e.offsetY,
+      engaged: false,
+      segmentId: hit.hoverSegmentId,
+      edge: hit.hoverEdge,
+    };
+  } else {
+    drag = {
+      active: true,
+      type: hit.hoverPlayhead ? 'playhead' : null,
+      startX: e.offsetX,
+      startY: e.offsetY,
+      engaged: false,
+      segmentId: null,
+      edge: null,
+    };
+  }
 }
 
 function handleMouseMove(e: MouseEvent): void {
@@ -150,6 +225,62 @@ function handleMouseMove(e: MouseEvent): void {
       );
       onSeek!(Math.max(0, Math.min(time, duration)));
     }
+
+    if (drag.engaged && drag.type === 'edge' && drag.segmentId && drag.edge) {
+      const rect = canvas!.getBoundingClientRect();
+      const duration = getDuration!();
+      const segments = getSegments!();
+      let rawTime = xToTime(
+        Math.max(0, Math.min(e.offsetX, rect.width)),
+        duration,
+        rect.width,
+      );
+
+      // Clamp against neighbors and minimum segment duration
+      const seg = segments.find(s => s.id === drag.segmentId);
+      if (seg) {
+        const sorted = segments
+          .filter(s => s.type !== 'speech')
+          .sort((a, b) => a.start - b.start);
+        const idx = sorted.findIndex(s => s.id === seg.id);
+
+        if (drag.edge === 'start') {
+          const prevEnd = idx > 0 ? sorted[idx - 1].end : 0;
+          const maxStart = seg.end - MIN_SEGMENT_DURATION;
+          rawTime = Math.max(prevEnd, Math.min(rawTime, maxStart));
+        } else {
+          const nextStart = idx < sorted.length - 1 ? sorted[idx + 1].start : duration;
+          const minEnd = seg.start + MIN_SEGMENT_DURATION;
+          rawTime = Math.max(minEnd, Math.min(rawTime, nextStart));
+        }
+
+        // Snap
+        const snapped = computeSnap(rawTime, drag.segmentId, drag.edge);
+        if (snapped !== null) {
+          // Re-clamp snapped value
+          if (drag.edge === 'start') {
+            const prevEnd = idx > 0 ? sorted[idx - 1].end : 0;
+            const maxStart = seg.end - MIN_SEGMENT_DURATION;
+            rawTime = Math.max(prevEnd, Math.min(snapped, maxStart));
+          } else {
+            const nextStart = idx < sorted.length - 1 ? sorted[idx + 1].start : duration;
+            const minEnd = seg.start + MIN_SEGMENT_DURATION;
+            rawTime = Math.max(minEnd, Math.min(snapped, nextStart));
+          }
+          snapTime = rawTime;
+        } else {
+          snapTime = null;
+        }
+
+        // Propagate resize
+        onResize!(drag.segmentId, drag.edge, rawTime);
+
+        // Update hover state to highlight active handle
+        currentHit = { hoverSegmentId: drag.segmentId, hoverEdge: drag.edge, hoverPlayhead: false };
+        onHitUpdate!(currentHit);
+      }
+    }
+
     return;
   }
 
@@ -164,8 +295,9 @@ function handleMouseUp(e: MouseEvent): void {
   if (!drag.active) return;
 
   const wasDragging = drag.engaged;
-  const wasPlayheadDrag = drag.type === 'playhead';
-  drag = { active: false, type: null, startX: 0, startY: 0, engaged: false };
+  const wasEdgeDrag = drag.type === 'edge';
+  drag = { active: false, type: null, startX: 0, startY: 0, engaged: false, segmentId: null, edge: null };
+  snapTime = null;
 
   if (wasDragging) return; // drag completed, not a click
 
@@ -191,7 +323,8 @@ function handleMouseUp(e: MouseEvent): void {
 }
 
 function handleMouseLeave(): void {
-  drag = { active: false, type: null, startX: 0, startY: 0, engaged: false };
+  drag = { active: false, type: null, startX: 0, startY: 0, engaged: false, segmentId: null, edge: null };
+  snapTime = null;
   currentHit = { hoverSegmentId: null, hoverEdge: null, hoverPlayhead: false };
   if (canvas) canvas.style.cursor = 'default';
   onHitUpdate!(currentHit);
@@ -208,6 +341,7 @@ export interface TimelineInteractionOptions {
   getPlayhead: () => number;
   onSeek: SeekFn;
   onToggle: ToggleFn;
+  onResize: ResizeFn;
   onHitUpdate: HitUpdateFn;
 }
 
@@ -218,6 +352,7 @@ export function initTimelineInteraction(opts: TimelineInteractionOptions): void 
   getPlayhead = opts.getPlayhead;
   onSeek = opts.onSeek;
   onToggle = opts.onToggle;
+  onResize = opts.onResize;
   onHitUpdate = opts.onHitUpdate;
 
   canvas.addEventListener('mousedown', handleMouseDown);
@@ -241,7 +376,9 @@ export function destroyTimelineInteraction(): void {
   getPlayhead = null;
   onSeek = null;
   onToggle = null;
+  onResize = null;
   onHitUpdate = null;
-  drag = { active: false, type: null, startX: 0, startY: 0, engaged: false };
+  drag = { active: false, type: null, startX: 0, startY: 0, engaged: false, segmentId: null, edge: null };
+  snapTime = null;
   currentHit = { hoverSegmentId: null, hoverEdge: null, hoverPlayhead: false };
 }

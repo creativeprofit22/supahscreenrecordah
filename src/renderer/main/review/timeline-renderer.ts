@@ -14,6 +14,7 @@ export interface TimelineRenderState {
   duration: number;   // seconds
   hoverSegmentId: string | null;
   hoverEdge: 'start' | 'end' | null;
+  snapTime: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -84,7 +85,7 @@ export function renderTimeline(
   height: number,
   state: TimelineRenderState,
 ): void {
-  const { waveform, segments, playhead, duration, hoverSegmentId, hoverEdge } = state;
+  const { waveform, segments, playhead, duration, hoverSegmentId, hoverEdge, snapTime } = state;
 
   // 1. Background
   ctx.fillStyle = '#1e1e2e';
@@ -173,6 +174,20 @@ export function renderTimeline(
     const endAlpha = endHover ? 1.0 : 0.5;
     ctx.fillStyle = `rgba(205, 214, 244, ${endAlpha})`;
     ctx.fillRect(ex - Math.floor(endW / 2), 0, endW, height);
+  }
+
+  // 4b. Snap indicator line
+  if (snapTime !== null && duration > 0) {
+    const snapX = timeToX(snapTime, duration, width);
+    ctx.save();
+    ctx.strokeStyle = '#89dceb'; // cyan
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(snapX, 0);
+    ctx.lineTo(snapX, height);
+    ctx.stroke();
+    ctx.restore();
   }
 
   // 5. Playhead — 2px white vertical line + triangle at top

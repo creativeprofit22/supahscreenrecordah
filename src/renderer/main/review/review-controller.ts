@@ -9,6 +9,7 @@ import {
 import { renderTimeline } from './timeline-renderer';
 import {
   initTimelineInteraction, destroyTimelineInteraction,
+  getSnapIndicatorTime,
   type HitState,
 } from './timeline-interaction';
 import type { ReviewSegment, ReviewState } from '../../../shared/review-types';
@@ -63,6 +64,7 @@ export async function initReview(): Promise<void> {
       getPlayhead: () => playbackVideo.currentTime,
       onSeek: (time: number) => { playbackVideo.currentTime = time; },
       onToggle: toggleSegment,
+      onResize: resizeSegment,
       onHitUpdate: (hit: HitState) => { hoverState = hit; },
     });
 
@@ -93,6 +95,32 @@ function toggleSegment(segmentId: string): void {
   if (!state) return;
   const seg = state.segments.find(s => s.id === segmentId);
   if (seg) seg.enabled = !seg.enabled;
+}
+
+/** Resize a segment edge and auto-adjust adjacent speech segments. */
+function resizeSegment(segmentId: string, edge: 'start' | 'end', newTime: number): void {
+  if (!state) return;
+  const seg = state.segments.find(s => s.id === segmentId);
+  if (!seg || seg.type === 'speech') return;
+
+  const oldTime = edge === 'start' ? seg.start : seg.end;
+  if (edge === 'start') {
+    seg.start = newTime;
+  } else {
+    seg.end = newTime;
+  }
+
+  // Auto-adjust adjacent speech segment to fill the gap
+  for (const s of state.segments) {
+    if (s.type !== 'speech') continue;
+    if (edge === 'start' && s.end === oldTime) {
+      // Speech segment that ended where our start was → adjust its end
+      s.end = newTime;
+    } else if (edge === 'end' && s.start === oldTime) {
+      // Speech segment that started where our end was → adjust its start
+      s.start = newTime;
+    }
+  }
 }
 
 /** Clean up on exit. */
@@ -147,6 +175,7 @@ function startRenderLoop(): void {
         duration: state.duration,
         hoverSegmentId: hoverState.hoverSegmentId,
         hoverEdge: hoverState.hoverEdge,
+        snapTime: getSnapIndicatorTime(),
       });
     }
 
