@@ -47,10 +47,12 @@ export async function enterPlaybackMode(blob: Blob): Promise<void> {
     const arrayBuffer = await blob.arrayBuffer();
     console.log('[rec] Sending buffer to preparePlayback, size:', arrayBuffer.byteLength);
     processingSub.textContent = 'Re-encoding video for preview...';
-    const filePath = await window.mainAPI.preparePlayback(arrayBuffer);
-    console.log('[rec] Got remuxed file path:', filePath);
-    playbackVideo.src = `file://${filePath}`;
-    console.log('[rec] Set playbackVideo.src to file:// URL');
+    const remuxedBuffer = await window.mainAPI.preparePlayback(arrayBuffer);
+    console.log('[rec] Got remuxed buffer, size:', remuxedBuffer.byteLength);
+    const remuxedBlob = new Blob([remuxedBuffer], { type: 'video/mp4' });
+    playbackBlobUrl = URL.createObjectURL(remuxedBlob);
+    playbackVideo.src = playbackBlobUrl;
+    console.log('[rec] Set playbackVideo.src to blob URL');
   } catch (err) {
     console.warn('[rec] Playback preparation failed, falling back to blob URL:', err);
     playbackBlobUrl = URL.createObjectURL(blob);

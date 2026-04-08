@@ -99,19 +99,23 @@ export function registerPlaybackHandlers(): void {
           // ignore
         }
         playbackTempFile = remuxedPath;
-        return remuxedPath;
+        // Return the file contents as a buffer — Electron blocks file:// URLs
+        // in renderer, so the renderer will create a blob URL instead.
+        const fileBuffer = await fs.promises.readFile(remuxedPath);
+        return fileBuffer.buffer.slice(fileBuffer.byteOffset, fileBuffer.byteOffset + fileBuffer.byteLength);
       }
       console.warn('[preparePlayback] FFmpeg re-encode failed, falling back to raw file');
     }
 
-    // Fallback: use raw file directly (may still stutter but better than blob)
+    // Fallback: return raw file as buffer (may still stutter but better than nothing)
     try {
       await fs.promises.unlink(remuxedPath);
     } catch {
       // ignore
     }
     playbackTempFile = rawPath;
-    return rawPath;
+    const rawBuffer = await fs.promises.readFile(rawPath);
+    return rawBuffer.buffer.slice(rawBuffer.byteOffset, rawBuffer.byteOffset + rawBuffer.byteLength);
   });
 
   ipcMain.handle(Channels.RECORDING_CLEANUP_PLAYBACK, async (event) => {

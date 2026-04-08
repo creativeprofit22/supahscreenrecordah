@@ -132,7 +132,7 @@ export interface MainAPI {
   onRecordingResume: (callback: () => void) => () => void;
   saveRecording: (filePath: string, buffer: ArrayBuffer, pauseTimestamps?: PauseTimestamp[]) => Promise<void>;
   exportRecording: () => Promise<string>;
-  preparePlayback: (buffer: ArrayBuffer) => Promise<string>;
+  preparePlayback: (buffer: ArrayBuffer) => Promise<ArrayBuffer>;
   cleanupPlayback: () => Promise<void>;
   getConfig: () => Promise<AppConfig>;
   startMouseTracking: () => Promise<boolean>;
