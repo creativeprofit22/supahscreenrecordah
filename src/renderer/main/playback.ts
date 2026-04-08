@@ -7,11 +7,15 @@ import {
   playbackExportBtn, playbackExitBtn,
   processingOverlay, processingSub,
   previewContainer,
+  autoTrimBtn, undoAllBtn,
 } from './dom';
 import { startZoomLoop } from './zoom';
 import { startWaveformCapture, getSavedMicDeviceIdForRestart, clearSavedMicDeviceIdForRestart } from './overlays/waveform';
 import { getPauseCutPoints } from './recording';
-import { initReview, destroyReview } from './review/review-controller';
+import {
+  initReview, destroyReview,
+  bulkRemoveSilences, bulkRemoveFillers, bulkRemoveSilencesAndFillers, undoAll,
+} from './review/review-controller';
 import type { PauseTimestamp } from '../../shared/types';
 
 // ---------------------------------------------------------------------------
@@ -160,5 +164,44 @@ export function initPlaybackHandlers(): void {
 
   playbackExitBtn.addEventListener('click', () => {
     exitPlaybackMode();
+  });
+
+  // --- Auto-trim dropdown ---------------------------------------------------
+  const dropdownMenu = document.createElement('div');
+  dropdownMenu.className = 'auto-trim-dropdown hidden';
+  const options: Array<{ label: string; action: () => void }> = [
+    { label: 'Remove silences > 2s', action: () => bulkRemoveSilences(2) },
+    { label: 'Remove silences > 3s', action: () => bulkRemoveSilences(3) },
+    { label: 'Remove silences > 5s', action: () => bulkRemoveSilences(5) },
+    { label: 'Remove all fillers', action: () => bulkRemoveFillers() },
+    { label: 'Remove silences + fillers', action: () => bulkRemoveSilencesAndFillers() },
+  ];
+  for (const opt of options) {
+    const item = document.createElement('button');
+    item.className = 'auto-trim-option';
+    item.textContent = opt.label;
+    item.addEventListener('click', () => {
+      opt.action();
+      dropdownMenu.classList.add('hidden');
+    });
+    dropdownMenu.appendChild(item);
+  }
+  autoTrimBtn.parentElement!.style.position = 'relative';
+  autoTrimBtn.parentElement!.appendChild(dropdownMenu);
+
+  autoTrimBtn.addEventListener('click', () => {
+    dropdownMenu.classList.toggle('hidden');
+  });
+
+  // Close dropdown on outside click
+  document.addEventListener('click', (e) => {
+    if (!autoTrimBtn.contains(e.target as Node) && !dropdownMenu.contains(e.target as Node)) {
+      dropdownMenu.classList.add('hidden');
+    }
+  });
+
+  // --- Undo All button -------------------------------------------------------
+  undoAllBtn.addEventListener('click', () => {
+    undoAll();
   });
 }

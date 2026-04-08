@@ -68,9 +68,12 @@ export async function initReview(): Promise<void> {
       onHitUpdate: (hit: HitState) => { hoverState = hit; },
     });
 
+    // Wire playback skipping over disabled segments
+    initPlaybackSkipping();
+
     // Show review UI
-    reviewActionsBar.classList.remove('hidden');
-    reviewTimeline.classList.remove('hidden');
+    reviewActionsBar.classList.add('visible');
+    reviewTimeline.classList.add('visible');
   } catch (err) {
     console.warn('[review-controller] Analysis failed:', err);
   } finally {
@@ -123,10 +126,76 @@ function resizeSegment(segmentId: string, edge: 'start' | 'end', newTime: number
   }
 }
 
+// ---------------------------------------------------------------------------
+// Bulk actions
+// ---------------------------------------------------------------------------
+
+/** Disable all silence segments longer than the given threshold (seconds). */
+export function bulkRemoveSilences(thresholdSec: number): void {
+  if (!state) return;
+  for (const seg of state.segments) {
+    if (seg.type === 'silence' && (seg.end - seg.start) > thresholdSec) {
+      seg.enabled = false;
+    }
+  }
+}
+
+/** Disable all filler segments. */
+export function bulkRemoveFillers(): void {
+  if (!state) return;
+  for (const seg of state.segments) {
+    if (seg.type === 'filler') {
+      seg.enabled = false;
+    }
+  }
+}
+
+/** Disable all non-speech segments (silences + fillers). */
+export function bulkRemoveSilencesAndFillers(): void {
+  if (!state) return;
+  for (const seg of state.segments) {
+    if (seg.type !== 'speech') {
+      seg.enabled = false;
+    }
+  }
+}
+
+/** Re-enable all segments. */
+export function undoAll(): void {
+  if (!state) return;
+  for (const seg of state.segments) {
+    seg.enabled = true;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Preview playback — skip disabled segments
+// ---------------------------------------------------------------------------
+
+function onTimeUpdate(): void {
+  if (!state) return;
+  const t = playbackVideo.currentTime;
+  for (const seg of state.segments) {
+    if (!seg.enabled && t >= seg.start && t < seg.end) {
+      playbackVideo.currentTime = seg.end;
+      return;
+    }
+  }
+}
+
+export function initPlaybackSkipping(): void {
+  playbackVideo.addEventListener('timeupdate', onTimeUpdate);
+}
+
+export function destroyPlaybackSkipping(): void {
+  playbackVideo.removeEventListener('timeupdate', onTimeUpdate);
+}
+
 /** Clean up on exit. */
 export function destroyReview(): void {
   destroyed = true;
 
+  destroyPlaybackSkipping();
   destroyTimelineInteraction();
 
   if (rafId !== null) {
@@ -137,8 +206,8 @@ export function destroyReview(): void {
   state = null;
   hoverState = { hoverSegmentId: null, hoverEdge: null, hoverPlayhead: false };
 
-  reviewActionsBar.classList.add('hidden');
-  reviewTimeline.classList.add('hidden');
+  reviewActionsBar.classList.remove('visible');
+  reviewTimeline.classList.remove('visible');
 }
 
 // ---------------------------------------------------------------------------

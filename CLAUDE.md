@@ -16,13 +16,16 @@ macOS/Windows desktop screen + camera recorder built with Electron & TypeScript.
 src/
 ├── main/                    # Electron main process
 │   ├── ipc/                 # IPC handlers, one file per domain
-│   ├── input/               # Global input (keyboard, mouse via uiohook)
+│   ├── input/               # Global input (keyboard, mouse, active window)
 │   ├── services/            # Business logic
 │   │   ├── ffmpeg/          # FFmpeg encoding/remux
-│   │   ├── assemblyai/      # Transcription service
-│   │   └── thumbnail/       # Thumbnail generation
+│   │   ├── assemblyai/      # AssemblyAI transcription
+│   │   ├── thumbnail/       # Thumbnail generation
+│   │   ├── whisper.ts       # Whisper speech-to-text
+│   │   ├── waveform.ts      # Waveform data generation
+│   │   └── post-export.ts   # Post-processing after export
 │   └── windows/             # Window factory functions
-├── preload/                 # Context bridge scripts
+├── preload/                 # Context bridge scripts (one per window)
 ├── renderer/                # Browser-side code
 │   ├── main/                # Preview window + overlay system
 │   │   ├── audio/           # Audio visualization
@@ -34,21 +37,23 @@ src/
 │   ├── thumbnail/           # Thumbnail renderer
 │   ├── styles/              # CSS stylesheets
 │   └── lib/                 # Shared utilities (perf monitor)
-├── shared/                  # Code shared between main & renderer
-└── types/                   # TypeScript type definitions
-pages/                       # HTML entry points
-assets/                      # Static assets (icons, images)
-native/                      # Native binaries (FFmpeg, etc.)
+├── shared/                  # Shared types, channels, constants
+└── types/                   # TypeScript type declarations
+pages/                       # HTML entry points (one per window)
+assets/                      # Static assets (icons, sounds)
+native/                      # Native modules (macos-cursor)
+tests/                       # Unit and integration tests
+scripts/                     # Build and dev scripts
 ```
 
 ## Organization Rules
 
-- **IPC handlers** → `src/main/ipc/`, one file per domain
-- **Services** → `src/main/services/`, grouped by feature
-- **Renderer features** → own folder under `src/renderer/`
-- **Overlays** → `src/renderer/main/overlays/`
-- **Shared code** → `src/shared/`
-- **Types** → `src/types/` or co-located with usage
+- **IPC handlers** -> `src/main/ipc/`, one file per domain
+- **Services** -> `src/main/services/`, grouped by feature
+- **Renderer features** -> own folder under `src/renderer/`
+- **Overlays** -> `src/renderer/main/overlays/`
+- **Shared code** -> `src/shared/`
+- **Types** -> `src/types/` or co-located with usage
 - Single responsibility per file, clear descriptive names
 
 ## Code Quality
