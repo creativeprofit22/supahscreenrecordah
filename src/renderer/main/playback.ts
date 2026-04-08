@@ -11,6 +11,7 @@ import {
 import { startZoomLoop } from './zoom';
 import { startWaveformCapture, getSavedMicDeviceIdForRestart, clearSavedMicDeviceIdForRestart } from './overlays/waveform';
 import { getPauseCutPoints } from './recording';
+import { initReview, destroyReview } from './review/review-controller';
 import type { PauseTimestamp } from '../../shared/types';
 
 // ---------------------------------------------------------------------------
@@ -62,6 +63,9 @@ export async function enterPlaybackMode(blob: Blob): Promise<void> {
   // Hide processing indicator
   processingOverlay.classList.add('hidden');
 
+  // Start review analysis (waveform + transcription) in the background
+  void initReview();
+
   // Log video events for debugging
   playbackVideo.onloadedmetadata = () => {
     console.log(
@@ -82,6 +86,7 @@ export async function enterPlaybackMode(blob: Blob): Promise<void> {
 }
 
 export function exitPlaybackMode(): void {
+  destroyReview();
   playbackVideo.pause();
 
   if (playbackBlobUrl) {

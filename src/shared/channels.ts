@@ -83,4 +83,6 @@ export const Channels = {
   // Auto-save (crash recovery)
   AUTOSAVE_CHUNK: 'autosave:chunk',
   AUTOSAVE_CLEANUP: 'autosave:cleanup',
+  // Review screen analysis
+  REVIEW_ANALYZE: 'review:analyze',
 } as const;

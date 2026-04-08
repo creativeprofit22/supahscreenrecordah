@@ -15,7 +15,7 @@ macOS/Windows desktop screen + camera recorder built with Electron & TypeScript.
 ```
 src/
 ├── main/                    # Electron main process
-│   ├── ipc/                 # IPC handlers by domain
+│   ├── ipc/                 # IPC handlers, one file per domain
 │   ├── input/               # Global input (keyboard, mouse via uiohook)
 │   ├── services/            # Business logic
 │   │   ├── ffmpeg/          # FFmpeg encoding/remux
@@ -26,7 +26,8 @@ src/
 ├── renderer/                # Browser-side code
 │   ├── main/                # Preview window + overlay system
 │   │   ├── audio/           # Audio visualization
-│   │   └── overlays/        # Visual overlays (webcam-blur, etc.)
+│   │   ├── overlays/        # Visual overlays (webcam-blur, etc.)
+│   │   └── review/          # Post-recording review screen
 │   ├── toolbar/             # Floating recording toolbar
 │   ├── edit-modal/          # Post-recording overlay settings
 │   ├── onboarding/          # First-run onboarding
@@ -42,12 +43,12 @@ native/                      # Native binaries (FFmpeg, etc.)
 
 ## Organization Rules
 
-- **IPC handlers** go in `src/main/ipc/`, one file per domain
-- **Services** go in `src/main/services/`, grouped by feature
-- **Renderer features** get their own folder under `src/renderer/`
-- **Overlays** go in `src/renderer/main/overlays/`
-- **Shared code** between main/renderer goes in `src/shared/`
-- **Types** go in `src/types/` or co-located with usage
+- **IPC handlers** → `src/main/ipc/`, one file per domain
+- **Services** → `src/main/services/`, grouped by feature
+- **Renderer features** → own folder under `src/renderer/`
+- **Overlays** → `src/renderer/main/overlays/`
+- **Shared code** → `src/shared/`
+- **Types** → `src/types/` or co-located with usage
 - Single responsibility per file, clear descriptive names
 
 ## Code Quality
@@ -65,11 +66,7 @@ Fix ALL errors before continuing. Zero tolerance — no skipping warnings.
 
 ## Dev Notes
 
-- Windows Electron binary at `node_modules/electron/dist/electron.exe` (path.txt = `electron.exe`)
+- Windows Electron binary at `node_modules/electron/dist/electron.exe`
 - Launch from WSL: `cmd.exe /C "cd /D E:\Projects\Yaatuber && node node_modules\electron\cli.js ."`
 - `session.defaultSession.clearCache()` in main/index.ts busts Chromium disk cache during dev
 - Never use CSS on `<video>` with MediaStream in Electron — use canvas `drawImage` instead
-
-## Current Focus
-
-**Phase:** Post-Recording Review Screen — Chunk 0/12

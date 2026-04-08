@@ -1,5 +1,6 @@
 export * from './feature-types';
 import type { BlurRegion, AspectRatio, CursorEffectConfig, ProgressBarConfig, WatermarkConfig, IntroOutroConfig, CaptionConfig, SilenceRemovalConfig, ThumbnailConfig, ExportPlatform } from './feature-types';
+import type { ReviewAnalysisResult } from './review-types';
 
 /** A pause/resume boundary in the recorded video timeline (seconds) */
 export interface PauseTimestamp {
@@ -150,6 +151,7 @@ export interface MainAPI {
   onAspectRatioUpdate: (callback: (ratio: AspectRatio) => void) => () => void;
   sendAutosaveChunk: (buffer: ArrayBuffer, extension: string) => Promise<void>;
   autosaveCleanup: () => Promise<void>;
+  analyzeForReview: () => Promise<ReviewAnalysisResult>;
 }
 
 // ToolbarAPI

@@ -10,6 +10,11 @@ import { isValidSender } from './helpers';
 
 let playbackTempFile: string | null = null;
 
+/** Returns the current temp playback file path (used by review analysis). */
+export function getPlaybackTempFile(): string | null {
+  return playbackTempFile;
+}
+
 export function registerPlaybackHandlers(): void {
   // MediaRecorder produces fragmented MP4 (fMP4) which Chromium's <video>
   // element can't play smoothly from a blob URL (only keyframes display,

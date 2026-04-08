@@ -14,6 +14,7 @@ import { registerWatermarkHandlers } from './watermark';
 import { registerThumbnailHandlers } from './thumbnail';
 import { registerExportPlatformsHandler } from './export-platforms';
 import { registerAutosaveHandlers } from './autosave';
+import { registerReviewHandlers } from './review';
 
 export function registerAllHandlers(): void {
   registerDeviceHandlers();
@@ -29,6 +30,7 @@ export function registerAllHandlers(): void {
   registerThumbnailHandlers();
   registerExportPlatformsHandler();
   registerAutosaveHandlers();
+  registerReviewHandlers();
 }
 
 // For main/index.ts backward compat:

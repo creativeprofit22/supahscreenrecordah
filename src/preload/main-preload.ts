@@ -137,6 +137,8 @@ const mainAPI: MainAPI = {
     ipcRenderer.invoke(Channels.AUTOSAVE_CHUNK, { buffer, extension }),
 
   autosaveCleanup: () => ipcRenderer.invoke(Channels.AUTOSAVE_CLEANUP),
+
+  analyzeForReview: () => ipcRenderer.invoke(Channels.REVIEW_ANALYZE),
 };
 
 contextBridge.exposeInMainWorld('mainAPI', mainAPI);
