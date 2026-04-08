@@ -45,6 +45,7 @@ import {
   setCountdownEnabled,
   activeWebcamBlur, activeWebcamBlurIntensity,
   setActiveWebcamBlur, setActiveWebcamBlurIntensity,
+  setActiveShortsBaseZoom,
   activeSpotlight, setActiveSpotlight,
   setActiveCursorEffect,
   activeClickSounds, setActiveClickSounds,
@@ -316,6 +317,9 @@ function applyOverlay(settings: OverlayConfig): void {
   const cursorEffect = settings.cursorEffect ?? { trail: 'none' as const, clickRipple: false, clickRippleColor: '#ffffff' };
   setActiveCursorEffect(cursorEffect);
   setCursorEffectConfig(cursorEffect);
+
+  // Shorts mode base zoom
+  setActiveShortsBaseZoom(settings.shortsBaseZoom ?? 2.2);
 
   // Webcam background blur
   const wantWebcamBlur = settings.webcamBlur ?? false;

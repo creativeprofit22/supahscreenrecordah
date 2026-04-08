@@ -16,6 +16,7 @@ import {
   savedMicDeviceIdForRestart, setSavedMicDeviceIdForRestart,
   activeAspectRatio,
   activeWebcamBlur, activeWebcamBlurIntensity,
+  activeShortsBaseZoom,
   activeSpotlight, smoothMouseX, smoothMouseY,
   capturedBounds,
   activeClickSounds,
@@ -345,32 +346,30 @@ function drawShortsFrame(): void {
     if (natW && natH) {
       // Cover crop: fill the full screen zone, crop overflow
       const dstAspect = w / screenZoneH;
-      const srcAspect = natW / natH;
       let sx = 0, sy = 0, sw = natW, sh = natH;
 
-      if (currentZoom > 1.0) {
-        // Zoom: crop source to zoom region first, then cover-crop
-        sw = natW / currentZoom;
-        sh = natH / currentZoom;
-        const relPos = getMouseRelativeToCaptured();
-        if (relPos) {
-          sx = Math.max(0, Math.min(natW - sw, relPos.relX * natW - sw / 2));
-          sy = Math.max(0, Math.min(natH - sh, relPos.relY * natH - sh / 2));
-        } else {
-          sx = (natW - sw) / 2;
-          sy = (natH - sh) / 2;
-        }
+      // Shorts mode always crops to a readable region around the cursor.
+      // Click-to-zoom stacks on top of the configurable base zoom.
+      const clickDelta = currentZoom > 1.0 ? currentZoom - 1.0 : 0;
+      const effectiveZoom = activeShortsBaseZoom + clickDelta;
+      sw = natW / effectiveZoom;
+      sh = natH / effectiveZoom;
+      const relPos = getMouseRelativeToCaptured();
+      if (relPos) {
+        sx = Math.max(0, Math.min(natW - sw, relPos.relX * natW - sw / 2));
+        sy = Math.max(0, Math.min(natH - sh, relPos.relY * natH - sh / 2));
+      } else {
+        sx = (natW - sw) / 2;
+        sy = (natH - sh) / 2;
       }
 
-      // Apply cover crop on the (possibly zoomed) source region
+      // Cover crop on the (possibly zoomed) source region
       const zoomedAspect = sw / sh;
       if (zoomedAspect > dstAspect) {
-        // Source is wider — crop sides
         const cropW = sh * dstAspect;
         sx += (sw - cropW) / 2;
         sw = cropW;
       } else {
-        // Source is taller — crop top/bottom
         const cropH = sw / dstAspect;
         sy += (sh - cropH) / 2;
         sh = cropH;

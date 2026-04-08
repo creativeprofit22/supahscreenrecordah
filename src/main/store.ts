@@ -43,6 +43,7 @@ const DEFAULT_CONFIG: AppConfig = {
     watermark: { enabled: false, imagePath: '', position: 'bottom-right', opacity: 0.5, size: 10 },
     webcamBlur: false,
     webcamBlurIntensity: 40,
+    shortsBaseZoom: 2.2,
     introOutro: {
       introEnabled: false,
       introTemplate: 'fade-title',

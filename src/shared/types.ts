@@ -93,6 +93,7 @@ export interface OverlayConfig {
   watermark: WatermarkConfig;
   webcamBlur: boolean;
   webcamBlurIntensity: number;
+  shortsBaseZoom: number;
   introOutro: IntroOutroConfig;
   countdownEnabled: boolean;
   perspective: boolean;

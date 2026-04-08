@@ -25,6 +25,8 @@ const ambientParticlesToggle = document.getElementById(
 ) as HTMLInputElement;
 const mouseZoomSlider = document.getElementById('mouse-zoom') as HTMLInputElement;
 const mouseZoomVal = document.getElementById('mouse-zoom-val') as HTMLElement;
+const shortsBaseZoomSlider = document.getElementById('shorts-base-zoom') as HTMLInputElement;
+const shortsBaseZoomVal = document.getElementById('shorts-base-zoom-val') as HTMLElement;
 const zoomLingerSlider = document.getElementById('zoom-linger') as HTMLInputElement;
 const zoomLingerVal = document.getElementById('zoom-linger-val') as HTMLElement;
 const ctaIntervalSlider = document.getElementById('cta-interval') as HTMLInputElement;
@@ -196,6 +198,7 @@ function getOverlayFromUI(): OverlayConfig {
     socials: getSocials(),
     ambientParticles: ambientParticlesToggle.checked,
     mouseZoom: Number(mouseZoomSlider.value),
+    shortsBaseZoom: Number(shortsBaseZoomSlider.value),
     zoomLingerMs: Number(zoomLingerSlider.value),
     ctaText: overlayCtaInput.value.trim(),
     ctaIcon: selectedCtaIcon,
@@ -379,6 +382,11 @@ mouseZoomSlider.addEventListener('input', () => {
   sendPreview();
 });
 
+shortsBaseZoomSlider.addEventListener('input', () => {
+  shortsBaseZoomVal.textContent = shortsBaseZoomSlider.value;
+  sendPreview();
+});
+
 zoomLingerSlider.addEventListener('input', () => {
   zoomLingerVal.textContent = formatLingerLabel(Number(zoomLingerSlider.value));
   sendPreview();
@@ -443,6 +451,10 @@ void window.editModalAPI
     if (overlay.mouseZoom !== undefined) {
       mouseZoomSlider.value = String(overlay.mouseZoom);
       mouseZoomVal.textContent = String(overlay.mouseZoom);
+    }
+    if (overlay.shortsBaseZoom !== undefined) {
+      shortsBaseZoomSlider.value = String(overlay.shortsBaseZoom);
+      shortsBaseZoomVal.textContent = String(overlay.shortsBaseZoom);
     }
     if (overlay.zoomLingerMs !== undefined) {
       zoomLingerSlider.value = String(overlay.zoomLingerMs);

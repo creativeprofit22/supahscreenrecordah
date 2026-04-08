@@ -17,6 +17,7 @@ import {
   activeAspectRatio, setActiveAspectRatio,
   currentZoom,
   activeWebcamBlur, activeWebcamBlurIntensity,
+  activeShortsBaseZoom,
 } from './state';
 import type { AspectRatio } from '../../shared/types';
 import { ASPECT_RATIOS } from '../../shared/feature-types';
@@ -29,6 +30,7 @@ import { positionCameraName } from './overlays/camera-name';
 import { positionSocialsOverlay } from './overlays/socials';
 import { refreshBlurRegionPositions } from './overlays/blur-regions';
 import { startZoomLoop, stopZoomLoop, sizeBgCanvas, getMouseRelativeToCaptured } from './zoom';
+import { updateSmoothMouse } from './overlays/cursor';
 import { processBlurFrame } from './overlays/webcam-blur';
 import { startWaveformCapture, stopWaveformCapture, sizeWaveformCanvas } from './overlays/waveform';
 import type { PreviewSelection } from '../../shared/types';
@@ -588,6 +590,15 @@ export function applyAspectRatioLayout(ratio: AspectRatio): void {
 /** Shorts preview render loop handle — cancelled when leaving shorts mode. */
 let shortsPreviewRAF: number | null = null;
 
+/** Smoothed crop coordinates to eliminate jitter from dead-zone jumps and spring overshoot. */
+let smoothCropSx = 0;
+let smoothCropSy = 0;
+/** Smooth factor for small movements (anti-jitter). Big jumps use a higher factor for punch. */
+const CROP_SMOOTH_MIN = 0.16;
+const CROP_SMOOTH_MAX = 0.6;
+/** Distance threshold (px in source coords) — above this, snap fast. */
+const CROP_SNAP_THRESHOLD = 80;
+
 /** Fit the shorts mode layout — renders both videos on a canvas.
  *  Chromium's GPU compositor ignores CSS sizing/transform/object-fit on <video>
  *  elements with MediaStream sources, so we bypass it entirely with drawImage. */
@@ -615,6 +626,8 @@ export function stopShortsPreviewLoop(): void {
     cancelAnimationFrame(shortsPreviewRAF);
     shortsPreviewRAF = null;
   }
+  smoothCropSx = 0;
+  smoothCropSy = 0;
   // Restore video elements
   screenWrapper.removeAttribute('style');
   cameraContainer.removeAttribute('style');
@@ -626,6 +639,9 @@ function startShortsPreviewLoop(): void {
       shortsPreviewRAF = null;
       return;
     }
+
+    // Update smooth mouse + zoom spring in sync with this loop
+    updateSmoothMouse();
 
     const w = shortsPreviewCanvas.width;
     const h = shortsPreviewCanvas.height;
@@ -647,18 +663,29 @@ function startShortsPreviewLoop(): void {
         const dstAspect = w / screenZoneH;
         let sx = 0, sy = 0, sw = natW, sh = natH;
 
-        // Zoom: crop source to zoom region first
-        if (currentZoom > 1.0) {
-          sw = natW / currentZoom;
-          sh = natH / currentZoom;
-          const relPos = getMouseRelativeToCaptured();
-          if (relPos) {
-            sx = Math.max(0, Math.min(natW - sw, relPos.relX * natW - sw / 2));
-            sy = Math.max(0, Math.min(natH - sh, relPos.relY * natH - sh / 2));
-          } else {
-            sx = (natW - sw) / 2;
-            sy = (natH - sh) / 2;
-          }
+        // Shorts mode always crops to a readable region around the cursor.
+        // Click-to-zoom stacks on top of the base zoom (e.g. base 2.2 + click 0.5 = 2.7).
+        const clickDelta = currentZoom > 1.0 ? currentZoom - 1.0 : 0;
+        const effectiveZoom = activeShortsBaseZoom + clickDelta;
+        sw = natW / effectiveZoom;
+        sh = natH / effectiveZoom;
+        const relPos = getMouseRelativeToCaptured();
+        if (relPos) {
+          const targetSx = Math.max(0, Math.min(natW - sw, relPos.relX * natW - sw / 2));
+          const targetSy = Math.max(0, Math.min(natH - sh, relPos.relY * natH - sh / 2));
+          // Adaptive smoothing: snap fast on big jumps (zoom-in), smooth on small movements (anti-jitter)
+          const dist = Math.abs(targetSx - smoothCropSx) + Math.abs(targetSy - smoothCropSy);
+          const t = Math.min(1, dist / CROP_SNAP_THRESHOLD);
+          const factor = CROP_SMOOTH_MIN + (CROP_SMOOTH_MAX - CROP_SMOOTH_MIN) * t;
+          smoothCropSx += (targetSx - smoothCropSx) * factor;
+          smoothCropSy += (targetSy - smoothCropSy) * factor;
+          sx = smoothCropSx;
+          sy = smoothCropSy;
+        } else {
+          sx = (natW - sw) / 2;
+          sy = (natH - sh) / 2;
+          smoothCropSx = sx;
+          smoothCropSy = sy;
         }
 
         // Cover crop on the (possibly zoomed) source region

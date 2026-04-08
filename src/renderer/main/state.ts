@@ -88,6 +88,7 @@ export let activeSpotlight = false;
 // ---------------------------------------------------------------------------
 export let activeWebcamBlur = false;
 export let activeWebcamBlurIntensity = 30;
+export let activeShortsBaseZoom = 2.2;
 
 // ---------------------------------------------------------------------------
 // Cursor effect state
@@ -200,6 +201,7 @@ export function setActiveSpotlight(v: boolean): void { activeSpotlight = v; }
 // Webcam blur
 export function setActiveWebcamBlur(v: boolean): void { activeWebcamBlur = v; }
 export function setActiveWebcamBlurIntensity(v: number): void { activeWebcamBlurIntensity = v; }
+export function setActiveShortsBaseZoom(v: number): void { activeShortsBaseZoom = v; }
 
 // Cursor effect
 export function setActiveCursorEffect(c: CursorEffectConfig): void { activeCursorEffect = c; }
