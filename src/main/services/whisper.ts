@@ -1,6 +1,7 @@
 import { execFile } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import http from 'http';
 import https from 'https';
 import { promisify } from 'util';
 import { app } from 'electron';
@@ -31,7 +32,8 @@ export async function findWhisper(): Promise<string | null> {
   // Check app-bundled binary first
   const userDataBin = path.join(getBinDir(), WHISPER_BINARY_NAME);
   try {
-    await fs.promises.access(userDataBin, fs.constants.X_OK);
+    const checkFlag = process.platform === 'win32' ? fs.constants.R_OK : fs.constants.X_OK;
+    await fs.promises.access(userDataBin, checkFlag);
     return userDataBin;
   } catch {
     // Not installed locally
@@ -103,7 +105,7 @@ export async function installWhisper(
   onProgress({ dependency: 'whisper', status: 'downloading', progress: 0 });
 
   try {
-    const tmpPath = targetPath + '.zip.tmp';
+    const tmpPath = path.join(binDir, 'whisper-download.zip');
     await downloadFile(WHISPER_WINDOWS_URL, tmpPath, (pct) => {
       onProgress({ dependency: 'whisper', status: 'downloading', progress: pct });
     });
@@ -118,7 +120,7 @@ export async function installWhisper(
     onProgress({ dependency: 'whisper', status: 'error', error: message });
     // Clean up partial download
     try {
-      await fs.promises.unlink(targetPath + '.zip.tmp');
+      await fs.promises.unlink(path.join(binDir, 'whisper-download.zip'));
     } catch {
       // ignore
     }
@@ -200,10 +202,10 @@ function downloadFile(
   onProgress: (percent: number) => void,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const MAX_REDIRECTS = 5;
+    const MAX_REDIRECTS = 10;
     const follow = (currentUrl: string, redirectCount = 0): void => {
-      https
-        .get(currentUrl, (res) => {
+      const get = currentUrl.startsWith('https') ? https.get : http.get;
+      get(currentUrl, (res) => {
           // Handle redirects
           if (
             res.statusCode &&
@@ -211,7 +213,7 @@ function downloadFile(
             res.statusCode < 400 &&
             res.headers.location
           ) {
-            res.resume(); // drain response to free the socket
+            res.resume();
             if (redirectCount >= MAX_REDIRECTS) {
               reject(new Error('Too many redirects'));
               return;

@@ -16,17 +16,25 @@ interface FfmpegResult {
  * For each segment: trim video + audio, reset timestamps.
  * Then concat all segments into a single output.
  */
+/** Audio crossfade duration in seconds — smooths hard cuts */
+const CROSSFADE_SEC = 0.05;
+
 function buildFilterComplex(keepSegments: Array<{ start: number; end: number }>): string {
   const parts: string[] = [];
   const concatInputs: string[] = [];
 
   for (let i = 0; i < keepSegments.length; i++) {
     const { start, end } = keepSegments[i];
+    // Add small audio fade-in/out to avoid pops at cut boundaries
+    const fadeDur = CROSSFADE_SEC;
+    const segDur = end - start;
+    const fadeOutStart = Math.max(0, segDur - fadeDur);
+
     parts.push(
       `[0:v]trim=start=${start.toFixed(6)}:end=${end.toFixed(6)},setpts=PTS-STARTPTS[v${i}]`,
     );
     parts.push(
-      `[0:a]atrim=start=${start.toFixed(6)}:end=${end.toFixed(6)},asetpts=PTS-STARTPTS[a${i}]`,
+      `[0:a]atrim=start=${start.toFixed(6)}:end=${end.toFixed(6)},asetpts=PTS-STARTPTS,afade=t=in:st=0:d=${fadeDur.toFixed(3)},afade=t=out:st=${fadeOutStart.toFixed(3)}:d=${fadeDur.toFixed(3)}[a${i}]`,
     );
     concatInputs.push(`[v${i}][a${i}]`);
   }

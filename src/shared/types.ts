@@ -156,6 +156,9 @@ export interface MainAPI {
   checkWhisper: () => Promise<{ binary: boolean; model: boolean }>;
   installWhisper: () => Promise<void>;
   onWhisperInstallProgress: (callback: (progress: import('./activation-types').InstallProgress) => void) => () => void;
+  showToolbar: () => Promise<void>;
+  hasLastRecording: () => Promise<{ exists: boolean; size: number; modified: number }>;
+  loadLastRecording: () => Promise<ArrayBuffer>;
 }
 
 // ToolbarAPI

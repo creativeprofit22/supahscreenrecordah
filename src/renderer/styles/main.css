@@ -738,6 +738,56 @@ body {
   100% { background-position: -200% 0; }
 }
 
+.timeline-legend {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--subtext0);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.legend-swatch--silence {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--overlay);
+}
+
+.legend-swatch--filler {
+  background: rgba(249, 226, 175, 0.4);
+  border: 1px solid rgba(249, 226, 175, 0.6);
+}
+
+.legend-swatch--cut {
+  background: rgba(243, 139, 168, 0.4);
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 2px,
+    rgba(243, 139, 168, 0.5) 2px,
+    rgba(243, 139, 168, 0.5) 4px
+  );
+  border: 1px solid rgba(243, 139, 168, 0.6);
+}
+
+.legend-hint {
+  margin-left: auto;
+  color: var(--overlay);
+  font-style: italic;
+}
+
 .timeline-canvas {
   width: 100%;
   height: 80px;
@@ -978,63 +1028,52 @@ body {
     visibility 0s 0.5s;
 }
 
-/* ── Whisper install banner ── */
-.whisper-banner {
+/* ── Recovery banner ── */
+
+.recovery-banner {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 8px;
-  padding: 8px 14px;
-  background: rgba(166, 227, 161, 0.08);
-  border: 1px solid rgba(166, 227, 161, 0.2);
-  border-radius: 8px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border: 1px solid var(--overlay);
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   animation: fadeIn 0.3s ease;
 }
 
-.whisper-banner-text {
+.recovery-text {
   font-size: 13px;
-  color: var(--subtext);
-  flex: 1;
+  color: var(--text);
 }
 
-.whisper-banner-btn {
-  padding: 5px 16px;
+.recovery-btn {
+  padding: 5px 14px;
   border: none;
   border-radius: 6px;
-  background: var(--green);
-  color: #1e1e2e;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: opacity 0.15s;
 }
 
-.whisper-banner-btn:hover {
+.recovery-btn:hover {
   opacity: 0.85;
 }
 
-.whisper-banner-btn.hidden {
-  display: none;
+.recovery-btn--open {
+  background: var(--blue);
+  color: #1e1e2e;
 }
 
-.whisper-banner-progress {
-  width: 140px;
-  height: 6px;
-  background: var(--surface);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.whisper-banner-progress.hidden {
-  display: none;
-}
-
-.whisper-banner-progress-bar {
-  width: 0%;
-  height: 100%;
-  background: var(--green);
-  border-radius: 3px;
-  transition: width 0.3s ease;
+.recovery-btn--dismiss {
+  background: var(--overlay);
+  color: var(--text);
 }
 
 @keyframes fadeIn {

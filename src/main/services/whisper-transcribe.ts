@@ -82,12 +82,20 @@ export async function transcribeWithWhisper(videoPath: string): Promise<Transcri
   }
 }
 
+/** Max realistic duration for a single spoken word (seconds). */
+const MAX_WORD_DURATION = 0.9;
+
+/** whisper.cpp special tokens to filter out */
+const SPECIAL_TOKEN_RE = /^\[_[A-Z]+_?\]$|^\[_TT_\d+\]$/;
+
 /**
  * Merge whisper tokens into words.
  * Tokens starting with a space begin a new word; others append to the current word.
+ * Filters special tokens, clamps inflated word durations, and strips trailing punctuation
+ * from the text used for filler detection.
  */
 function mergeTokensToWords(data: WhisperJson): TranscribedWord[] {
-  const words: TranscribedWord[] = [];
+  const raw: TranscribedWord[] = [];
 
   for (const segment of data.transcription) {
     let currentText = '';
@@ -99,10 +107,17 @@ function mergeTokensToWords(data: WhisperJson): TranscribedWord[] {
       // Skip empty/whitespace-only tokens
       if (!text || text.trim() === '') continue;
 
+      // Skip special whisper tokens like [_BEG_], [_TT_420]
+      const trimmed = text.trim();
+      if (SPECIAL_TOKEN_RE.test(trimmed)) continue;
+      // Also filter tokens that contain special tokens appended to words (e.g. "are.[_TT_540]")
+      const cleanedToken = trimmed.replace(/\[_[A-Z_]+\d*\]/g, '').trim();
+      if (!cleanedToken) continue;
+
       if (text.startsWith(' ')) {
         // Flush previous word if any
         if (currentText) {
-          words.push({
+          raw.push({
             text: currentText,
             start: currentStart / 1000,
             end: currentEnd / 1000,
@@ -110,18 +125,16 @@ function mergeTokensToWords(data: WhisperJson): TranscribedWord[] {
           });
         }
         // Start new word (strip leading space)
-        currentText = text.trimStart();
+        currentText = cleanedToken.startsWith(' ') ? cleanedToken.trimStart() : cleanedToken;
         currentStart = token.offsets.from;
         currentEnd = token.offsets.to;
       } else {
         if (!currentText) {
-          // First token in segment (no leading space)
-          currentText = text;
+          currentText = cleanedToken;
           currentStart = token.offsets.from;
           currentEnd = token.offsets.to;
         } else {
-          // Continuation of current word
-          currentText += text;
+          currentText += cleanedToken;
           currentEnd = token.offsets.to;
         }
       }
@@ -129,7 +142,7 @@ function mergeTokensToWords(data: WhisperJson): TranscribedWord[] {
 
     // Flush last word in segment
     if (currentText) {
-      words.push({
+      raw.push({
         text: currentText,
         start: currentStart / 1000,
         end: currentEnd / 1000,
@@ -138,5 +151,18 @@ function mergeTokensToWords(data: WhisperJson): TranscribedWord[] {
     }
   }
 
-  return words;
+  // Clamp inflated word durations — whisper often stretches word end times
+  // to fill silence gaps. Cap each word to MAX_WORD_DURATION so the gap
+  // detection can find the real silences.
+  const clamped: TranscribedWord[] = [];
+  for (const w of raw) {
+    const duration = w.end - w.start;
+    if (duration > MAX_WORD_DURATION) {
+      clamped.push({ ...w, end: w.start + MAX_WORD_DURATION });
+    } else {
+      clamped.push(w);
+    }
+  }
+
+  return clamped;
 }

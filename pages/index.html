@@ -61,6 +61,12 @@
         <button id="undo-all-btn" class="playback-btn playback-btn--undo-all">Undo All</button>
       </div>
       <div id="review-timeline" class="review-timeline">
+        <div class="timeline-legend">
+          <span class="legend-item"><span class="legend-swatch legend-swatch--silence"></span>Silence</span>
+          <span class="legend-item"><span class="legend-swatch legend-swatch--filler"></span>Filler</span>
+          <span class="legend-item"><span class="legend-swatch legend-swatch--cut"></span>Will be cut</span>
+          <span class="legend-hint">Click segment to toggle &middot; Drag edges to adjust</span>
+        </div>
         <canvas id="timeline-canvas" class="timeline-canvas"></canvas>
       </div>
       <div class="playback-actions">

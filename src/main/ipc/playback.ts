@@ -1,4 +1,4 @@
-import { ipcMain, dialog } from 'electron';
+import { ipcMain, dialog, app } from 'electron';
 import { execFile } from 'child_process';
 import fs from 'fs';
 import path from 'path';
@@ -13,6 +13,11 @@ let playbackTempFile: string | null = null;
 /** Returns the current temp playback file path (used by review analysis). */
 export function getPlaybackTempFile(): string | null {
   return playbackTempFile;
+}
+
+/** Persistent path for the last recording (survives app restarts). */
+function getLastRecordingPath(): string {
+  return path.join(app.getPath('userData'), 'last-recording.mp4');
 }
 
 export function registerPlaybackHandlers(): void {
@@ -104,6 +109,13 @@ export function registerPlaybackHandlers(): void {
           // ignore
         }
         playbackTempFile = remuxedPath;
+        // Persist a copy so the last recording survives app restarts
+        try {
+          await fs.promises.copyFile(remuxedPath, getLastRecordingPath());
+          console.log('[playback] Saved last recording to', getLastRecordingPath());
+        } catch (copyErr) {
+          console.warn('[playback] Failed to save last recording:', copyErr);
+        }
         // Return the file contents as a buffer — Electron blocks file:// URLs
         // in renderer, so the renderer will create a blob URL instead.
         const fileBuffer = await fs.promises.readFile(remuxedPath);
@@ -150,5 +162,39 @@ export function registerPlaybackHandlers(): void {
       ],
     });
     return result.filePath ?? '';
+  });
+
+  // Check if a last recording exists (for recovery / re-review)
+  ipcMain.handle(Channels.PLAYBACK_HAS_LAST_RECORDING, async (event) => {
+    if (!isValidSender(event)) {
+      throw new Error('Unauthorized IPC sender');
+    }
+    try {
+      await fs.promises.access(getLastRecordingPath(), fs.constants.R_OK);
+      const stat = await fs.promises.stat(getLastRecordingPath());
+      return { exists: true, size: stat.size, modified: stat.mtimeMs };
+    } catch {
+      return { exists: false, size: 0, modified: 0 };
+    }
+  });
+
+  // Load the last recording into playback mode
+  ipcMain.handle(Channels.PLAYBACK_LOAD_LAST_RECORDING, async (event) => {
+    if (!isValidSender(event)) {
+      throw new Error('Unauthorized IPC sender');
+    }
+    const lastPath = getLastRecordingPath();
+    try {
+      await fs.promises.access(lastPath, fs.constants.R_OK);
+    } catch {
+      throw new Error('No last recording found');
+    }
+    // Copy to a temp file so cleanup doesn't delete the persistent copy
+    const tmpPath = path.join(os.tmpdir(), `supahscreenrecordah-recovery-${Date.now()}.mp4`);
+    await fs.promises.copyFile(lastPath, tmpPath);
+    playbackTempFile = tmpPath;
+    // Return the file contents as a buffer
+    const fileBuffer = await fs.promises.readFile(tmpPath);
+    return fileBuffer.buffer.slice(fileBuffer.byteOffset, fileBuffer.byteOffset + fileBuffer.byteLength);
   });
 }

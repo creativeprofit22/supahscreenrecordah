@@ -152,6 +152,11 @@ const mainAPI: MainAPI = {
     ipcRenderer.on(Channels.WHISPER_INSTALL_PROGRESS, handler);
     return () => { ipcRenderer.removeListener(Channels.WHISPER_INSTALL_PROGRESS, handler); };
   },
+
+  showToolbar: () => ipcRenderer.invoke(Channels.TOOLBAR_SHOW),
+
+  hasLastRecording: () => ipcRenderer.invoke(Channels.PLAYBACK_HAS_LAST_RECORDING),
+  loadLastRecording: () => ipcRenderer.invoke(Channels.PLAYBACK_LOAD_LAST_RECORDING),
 };
 
 contextBridge.exposeInMainWorld('mainAPI', mainAPI);

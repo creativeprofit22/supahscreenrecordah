@@ -5,8 +5,13 @@ const FILLER_WORDS = new Set([
   'like', 'you know', 'basically', 'actually', 'literally',
 ]);
 
-const SINGLE_FILLER_WORDS = new Set([
-  'um', 'uh', 'uhh', 'umm', 'erm',
+/** Fillers that are always non-meaningful — flag regardless of confidence */
+const ALWAYS_FILLER = new Set([
+  'um', 'uh', 'uhh', 'umm', 'erm', 'hmm', 'hm', 'ah', 'eh',
+]);
+
+/** Fillers that can be meaningful in context — only flag with low confidence */
+const MAYBE_FILLER = new Set([
   'like', 'basically', 'actually', 'literally',
 ]);
 
@@ -65,8 +70,21 @@ export function detectFillers(words: TranscribedWord[]): SilenceRegion[] {
       }
     }
 
-    // Check single-word fillers — only flag if confidence is low
-    if (SINGLE_FILLER_WORDS.has(cleaned) && word.confidence < 0.8) {
+    // Always flag pure fillers (um, uh, etc.)
+    if (ALWAYS_FILLER.has(cleaned)) {
+      regions.push({ start: word.start, end: word.end, reason: 'filler' });
+      continue;
+    }
+
+    // Ambiguous fillers — only flag if confidence is low (won't trigger with whisper since it returns 1.0)
+    if (MAYBE_FILLER.has(cleaned) && word.confidence < 0.8) {
+      regions.push({ start: word.start, end: word.end, reason: 'filler' });
+      continue;
+    }
+
+    // Whisper trailing ellipsis = hesitation/stammering (e.g. "to...", "I'm...", "the...")
+    // Flag short words with trailing ... as fillers — these are false starts
+    if (word.text.endsWith('...') && cleaned.length <= 5) {
       regions.push({ start: word.start, end: word.end, reason: 'filler' });
     }
   }

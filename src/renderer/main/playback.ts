@@ -89,6 +89,32 @@ export async function enterPlaybackMode(blob: Blob): Promise<void> {
   playbackContainer.classList.remove('hidden');
 }
 
+/** Enter playback from a pre-existing buffer (e.g. last recording recovery). */
+export async function enterPlaybackFromBuffer(buffer: ArrayBuffer): Promise<void> {
+  console.log('[rec] enterPlaybackFromBuffer — size:', buffer.byteLength);
+  const blob = new Blob([buffer], { type: 'video/mp4' });
+  pendingRecordingBlob = blob;
+  pendingPauseTimestamps = [];
+
+  previewContainer.style.display = 'none';
+  playbackBlobUrl = URL.createObjectURL(blob);
+  playbackVideo.src = playbackBlobUrl;
+  console.log('[rec] Set playbackVideo.src from last recording');
+
+  // Start review analysis
+  void initReview();
+
+  playbackVideo.onloadedmetadata = () => {
+    console.log('[rec] Last recording loaded — duration:', playbackVideo.duration);
+  };
+  playbackVideo.onerror = () => {
+    const e = playbackVideo.error;
+    console.error('[rec] Video error — code:', e?.code, 'message:', e?.message);
+  };
+
+  playbackContainer.classList.remove('hidden');
+}
+
 export function exitPlaybackMode(): void {
   destroyReview();
   playbackVideo.pause();
@@ -103,6 +129,9 @@ export function exitPlaybackMode(): void {
 
   // Clean up temp playback file on disk
   void window.mainAPI.cleanupPlayback();
+
+  // Restore the toolbar that was hidden during review
+  void window.mainAPI.showToolbar();
 
   pendingRecordingBlob = null;
   playbackContainer.classList.add('hidden');
@@ -161,7 +190,7 @@ export function initPlaybackHandlers(): void {
           const keepSegments: Array<{ start: number; end: number }> = [];
           for (const seg of keepRaw) {
             const last = keepSegments[keepSegments.length - 1];
-            if (last && Math.abs(seg.start - last.end) < 0.001) {
+            if (last && Math.abs(seg.start - last.end) < 0.05) {
               last.end = seg.end;
             } else {
               keepSegments.push({ ...seg });

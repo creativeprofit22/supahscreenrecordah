@@ -2,6 +2,7 @@ import { ipcMain } from 'electron';
 import { Channels } from '../../shared/channels';
 import { RecordingState } from '../../shared/types';
 import { getMainWindow } from '../windows/main-window';
+import { getToolbarWindow } from '../windows/toolbar-window';
 import { stopUiohook } from '../input';
 import { isValidSender, sendStateToToolbar } from './helpers';
 
@@ -70,6 +71,12 @@ export function registerRecordingHandlers(): void {
       main.webContents.send(Channels.MAIN_RECORDING_STOP);
       // Show the main window so the user can see the playback
       main.show();
+      main.maximize();
+    }
+    // Hide toolbar during review — it overlaps the review screen
+    const toolbar = getToolbarWindow();
+    if (toolbar && !toolbar.isDestroyed()) {
+      toolbar.hide();
     }
   });
 
@@ -82,6 +89,16 @@ export function registerRecordingHandlers(): void {
     const main = getMainWindow();
     if (main && !main.isDestroyed()) {
       main.webContents.send(Channels.MAIN_RECORDING_PAUSE);
+    }
+  });
+
+  ipcMain.handle(Channels.TOOLBAR_SHOW, async (event) => {
+    if (!isValidSender(event)) {
+      throw new Error('Unauthorized IPC sender');
+    }
+    const toolbar = getToolbarWindow();
+    if (toolbar && !toolbar.isDestroyed()) {
+      toolbar.show();
     }
   });
 

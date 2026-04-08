@@ -14,6 +14,7 @@ import {
   requestAccessibilityPermission,
 } from '../services/permissions';
 import { checkDependencies, installFfmpeg } from '../services/dependencies';
+import { findWhisper, findWhisperModel, installWhisper, installWhisperModel } from '../services/whisper';
 import { isValidSender } from './helpers';
 
 export function registerOnboardingHandlers(): void {
@@ -53,10 +54,14 @@ export function registerOnboardingHandlers(): void {
     if (!isValidSender(event)) {
       throw new Error('Unauthorized IPC sender');
     }
+    const sendProgress = (progress: import('../../shared/activation-types').InstallProgress) => {
+      event.sender.send(Channels.ONBOARDING_INSTALL_PROGRESS, progress);
+    };
     if (name === 'ffmpeg') {
-      await installFfmpeg((progress) => {
-        event.sender.send(Channels.ONBOARDING_INSTALL_PROGRESS, progress);
-      });
+      await installFfmpeg(sendProgress);
+    } else if (name === 'whisper') {
+      await installWhisper(sendProgress);
+      await installWhisperModel(sendProgress);
     }
   });
 

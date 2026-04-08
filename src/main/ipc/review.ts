@@ -28,16 +28,17 @@ function nextId(): string {
 function buildSegments(regions: SilenceRegion[], duration: number): ReviewSegment[] {
   if (regions.length === 0) return [];
 
-  // Sort and merge overlapping regions
+  // Sort regions by start time, then deduplicate overlapping regions.
+  // Filler takes precedence over silence when they overlap.
   const sorted = [...regions].sort((a, b) => a.start - b.start);
   const merged: SilenceRegion[] = [{ ...sorted[0] }];
 
   for (let i = 1; i < sorted.length; i++) {
     const last = merged[merged.length - 1];
     const cur = sorted[i];
-    if (cur.start <= last.end) {
+    if (cur.start < last.end) {
+      // Overlapping — extend the end, prefer filler type
       last.end = Math.max(last.end, cur.end);
-      // Keep the more specific reason
       if (cur.reason === 'filler') last.reason = 'filler';
     } else {
       merged.push({ ...cur });
@@ -95,7 +96,7 @@ export function registerReviewHandlers(): void {
   // --- Export with pre-computed keep-segments from the review screen ---------
   ipcMain.handle(
     Channels.REVIEW_EXPORT,
-    async (event, { filePath, buffer, keepSegments }: {
+    async (event, { filePath, keepSegments }: {
       filePath: string;
       buffer: ArrayBuffer;
       keepSegments: Array<{ start: number; end: number }>;
@@ -107,11 +108,17 @@ export function registerReviewHandlers(): void {
         throw new Error(`Invalid save path: ${filePath}`);
       }
 
+      // Use the remuxed playback file — same one whisper analyzed, so timestamps match
+      const sourcePath = getPlaybackTempFile();
+      if (!sourcePath) {
+        throw new Error('No playback file available for export');
+      }
+
       const tmpPath = path.join(os.tmpdir(), `supahscreenrecordah-review-export-${Date.now()}.mp4`);
 
       try {
-        // Write buffer to temp file
-        await fs.promises.writeFile(tmpPath, Buffer.from(buffer));
+        // Copy the remuxed source to a temp file for processing
+        await fs.promises.copyFile(sourcePath, tmpPath);
 
         // Cut segments if there are actual cuts (more than 1 keep-segment)
         if (keepSegments.length > 1) {
@@ -132,7 +139,6 @@ export function registerReviewHandlers(): void {
         console.error('[review-export] Failed:', err);
         throw err;
       } finally {
-        // Clean up temp file
         try {
           await fs.promises.unlink(tmpPath);
         } catch {
@@ -154,6 +160,7 @@ export function registerReviewHandlers(): void {
     }
 
     console.log('[review] Starting analysis for:', videoPath);
+    const logLines: string[] = [`[${new Date().toISOString()}] Analysis for: ${videoPath}`];
 
     // Run waveform extraction and transcription in parallel
     const [waveform, words] = await Promise.all([
@@ -161,18 +168,51 @@ export function registerReviewHandlers(): void {
       transcribeWithWhisper(videoPath),
     ]);
 
-    console.log('[review] Waveform samples:', waveform.samples.length, 'duration:', waveform.duration);
-    console.log('[review] Transcribed words:', words.length);
+    logLines.push(`Waveform samples: ${waveform.samples.length}, duration: ${waveform.duration.toFixed(2)}s`);
+    logLines.push(`Transcribed words: ${words.length}`);
+    if (words.length > 0) {
+      logLines.push('--- ALL WORDS ---');
+      for (const w of words) {
+        logLines.push(`  "${w.text}" ${w.start.toFixed(2)}-${w.end.toFixed(2)}`);
+      }
+
+      // Show gaps between words
+      logLines.push('--- GAPS BETWEEN WORDS ---');
+      for (let i = 0; i < words.length - 1; i++) {
+        const gap = words[i + 1].start - words[i].end;
+        if (gap > 0.3) {
+          logLines.push(`  GAP ${gap.toFixed(2)}s after "${words[i].text}" (${words[i].end.toFixed(2)} - ${words[i + 1].start.toFixed(2)})`);
+        }
+      }
+    }
 
     // Detect silences and fillers from transcribed words
     let segments: ReviewSegment[] = [];
     if (words.length > 0) {
-      const silences = detectSilences(words, 1500, 150);
+      const silences = detectSilences(words, 500, 100);
       const fillers = detectFillers(words);
       const allRegions = [...silences, ...fillers];
-      console.log('[review] Detected silences:', silences.length, 'fillers:', fillers.length);
+      logLines.push(`Detected silences: ${silences.length}, fillers: ${fillers.length}`);
+      logLines.push('--- SILENCE REGIONS ---');
+      for (const s of silences) {
+        logLines.push(`  ${s.start.toFixed(2)}-${s.end.toFixed(2)} (${(s.end - s.start).toFixed(2)}s)`);
+      }
+      logLines.push('--- FILLER REGIONS ---');
+      for (const f of fillers) {
+        const word = words.find(w => w.start <= f.start && w.end >= f.end);
+        logLines.push(`  ${f.start.toFixed(2)}-${f.end.toFixed(2)} "${word?.text ?? '?'}"`);
+      }
       segments = buildSegments(allRegions, waveform.duration);
+      logLines.push('--- BUILT SEGMENTS ---');
+      for (const s of segments) {
+        logLines.push(`  ${s.type}: ${s.start.toFixed(2)}-${s.end.toFixed(2)} (enabled: ${s.enabled})`);
+      }
     }
+
+    // Write log to file
+    const logPath = path.join(app.getPath('userData'), 'review-analysis.log');
+    await fs.promises.writeFile(logPath, logLines.join('\n'), 'utf-8');
+    console.log('[review] Analysis log written to', logPath);
 
     const result: ReviewAnalysisResult = { waveform, segments, words };
     return result;

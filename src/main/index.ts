@@ -21,6 +21,7 @@ import { loadConfig } from './store';
 import { Channels } from '../shared/channels';
 import { registerAppScheme, registerAppProtocolHandler } from './services/protocol';
 import { findMatchingSource } from './services/source-matching';
+import { findWhisper, findWhisperModel, installWhisper, installWhisperModel } from './services/whisper';
 
 /** Append debug lines to a log file next to the exe for easy inspection. */
 function debugLog(line: string): void {
@@ -147,6 +148,25 @@ app
 
     // Check for crash recovery files from a previous session
     void checkForRecoveryFiles();
+
+    // Silently install whisper binary + model in the background if not present
+    void (async () => {
+      try {
+        const noop = () => {};
+        if (!(await findWhisper())) {
+          console.log('[startup] Installing whisper binary...');
+          await installWhisper(noop);
+          console.log('[startup] Whisper binary installed');
+        }
+        if (!(await findWhisperModel())) {
+          console.log('[startup] Downloading whisper model...');
+          await installWhisperModel(noop);
+          console.log('[startup] Whisper model installed');
+        }
+      } catch (err) {
+        console.warn('[startup] Whisper background install failed:', err);
+      }
+    })();
 
     app.on('activate', () => {
       const mainWin = getMainWindow();

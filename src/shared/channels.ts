@@ -90,4 +90,7 @@ export const Channels = {
   WHISPER_CHECK: 'whisper:check',
   WHISPER_INSTALL: 'whisper:install',
   WHISPER_INSTALL_PROGRESS: 'whisper:install-progress',
+  TOOLBAR_SHOW: 'toolbar:show',
+  PLAYBACK_HAS_LAST_RECORDING: 'playback:has-last-recording',
+  PLAYBACK_LOAD_LAST_RECORDING: 'playback:load-last-recording',
 } as const;

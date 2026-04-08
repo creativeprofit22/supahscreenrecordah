@@ -22,8 +22,6 @@ let state: ReviewState | null = null;
 let rafId: number | null = null;
 let destroyed = false;
 let hoverState: HitState = { hoverSegmentId: null, hoverEdge: null, hoverPlayhead: false };
-let whisperBanner: HTMLDivElement | null = null;
-let unsubWhisperProgress: (() => void) | null = null;
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -92,10 +90,6 @@ export async function initReview(): Promise<void> {
     // Show review UI
     reviewActionsBar.classList.add('visible');
 
-    // If no segments (whisper missing or no speech), show whisper install banner
-    if (result.segments.length === 0) {
-      showWhisperBanner();
-    }
   } catch (err) {
     clearTimeout(stillWorkingTimer);
     console.warn('[review-controller] Analysis failed:', err);
@@ -112,73 +106,6 @@ export async function initReview(): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Whisper install banner
-// ---------------------------------------------------------------------------
-
-function showWhisperBanner(): void {
-  if (whisperBanner) return;
-
-  whisperBanner = document.createElement('div');
-  whisperBanner.className = 'whisper-banner';
-  whisperBanner.innerHTML = `
-    <span class="whisper-banner-text">Install Whisper for auto-trim</span>
-    <button class="whisper-banner-btn">Install</button>
-    <div class="whisper-banner-progress hidden">
-      <div class="whisper-banner-progress-bar"></div>
-    </div>
-  `;
-
-  const btn = whisperBanner.querySelector('.whisper-banner-btn') as HTMLButtonElement;
-  const progressContainer = whisperBanner.querySelector('.whisper-banner-progress') as HTMLDivElement;
-  const progressBar = whisperBanner.querySelector('.whisper-banner-progress-bar') as HTMLDivElement;
-
-  btn.addEventListener('click', () => {
-    btn.classList.add('hidden');
-    progressContainer.classList.remove('hidden');
-
-    unsubWhisperProgress = window.mainAPI.onWhisperInstallProgress((progress) => {
-      if (progress.status === 'downloading' && progress.progress !== undefined) {
-        progressBar.style.width = `${progress.progress}%`;
-      } else if (progress.status === 'installing') {
-        progressBar.style.width = '100%';
-      } else if (progress.status === 'error') {
-        btn.classList.remove('hidden');
-        progressContainer.classList.add('hidden');
-        console.warn('[review-controller] Whisper install failed:', progress.error);
-      }
-    });
-
-    void window.mainAPI.installWhisper().then(async () => {
-      if (unsubWhisperProgress) { unsubWhisperProgress(); unsubWhisperProgress = null; }
-      removeWhisperBanner();
-      // Re-run analysis after install
-      if (!destroyed) {
-        destroyTimelineInteraction();
-        destroyPlaybackSkipping();
-        reviewActionsBar.classList.remove('visible');
-        reviewTimeline.classList.remove('visible', 'slide-up');
-        if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
-        state = null;
-        await initReview();
-      }
-    });
-  });
-
-  // Insert banner before the review timeline
-  playbackContainer.insertBefore(whisperBanner, reviewTimeline);
-}
-
-function removeWhisperBanner(): void {
-  if (whisperBanner) {
-    whisperBanner.remove();
-    whisperBanner = null;
-  }
-  if (unsubWhisperProgress) {
-    unsubWhisperProgress();
-    unsubWhisperProgress = null;
-  }
-}
 
 /** Returns the current segment state (for export). */
 export function getReviewSegments(): ReviewSegment[] {
@@ -289,7 +216,6 @@ export function destroyReview(): void {
 
   destroyPlaybackSkipping();
   destroyTimelineInteraction();
-  removeWhisperBanner();
 
   if (rafId !== null) {
     cancelAnimationFrame(rafId);
@@ -298,6 +224,8 @@ export function destroyReview(): void {
 
   state = null;
   hoverState = { hoverSegmentId: null, hoverEdge: null, hoverPlayhead: false };
+  lastCanvasW = 0;
+  lastCanvasH = 0;
 
   reviewActionsBar.classList.remove('visible');
   reviewTimeline.classList.remove('visible', 'skeleton', 'slide-up');
@@ -307,13 +235,22 @@ export function destroyReview(): void {
 // Render loop
 // ---------------------------------------------------------------------------
 
+let lastCanvasW = 0;
+let lastCanvasH = 0;
+
+const TIMELINE_HEIGHT = 80;
+
 function sizeCanvas(): void {
-  const rect = reviewTimeline.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
-  timelineCanvas.width = rect.width * dpr;
-  timelineCanvas.height = rect.height * dpr;
-  timelineCanvas.style.width = `${rect.width}px`;
-  timelineCanvas.style.height = `${rect.height}px`;
+  const w = Math.round(reviewTimeline.clientWidth * dpr);
+  const h = Math.round(TIMELINE_HEIGHT * dpr);
+  if (w === lastCanvasW && h === lastCanvasH) return;
+  lastCanvasW = w;
+  lastCanvasH = h;
+  timelineCanvas.width = w;
+  timelineCanvas.height = h;
+  timelineCanvas.style.width = `${reviewTimeline.clientWidth}px`;
+  timelineCanvas.style.height = `${TIMELINE_HEIGHT}px`;
   timelineCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
@@ -328,6 +265,9 @@ function startRenderLoop(): void {
 
     if (state) {
       state.playheadPosition = playbackVideo.currentTime;
+
+      // Re-size canvas every frame to handle container resize/animation
+      sizeCanvas();
 
       const rect = reviewTimeline.getBoundingClientRect();
       renderTimeline(timelineCtx, rect.width, rect.height, {

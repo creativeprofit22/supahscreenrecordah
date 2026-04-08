@@ -10,7 +10,7 @@ import * as perfMonitor from '../lib/perf-monitor';
 import { handlePreviewUpdate, initResizeHandler, initScreenDrag, applyAspectRatioLayout, isShortsMode } from './preview';
 import { startRecording, stopRecording, pauseRecording, resumeRecording, isRecordingActive, refreshRecLayoutCache } from './recording';
 import { runCountdown, skipCountdown, isCountdownActive } from './overlays/countdown';
-import { initPlaybackHandlers } from './playback';
+import { initPlaybackHandlers, enterPlaybackFromBuffer } from './playback';
 import { updateCameraName, isMagnifyActive } from './overlays/camera-name';
 import { updateSocialsOverlay } from './overlays/socials';
 import { applyCameraFiltersToPreview, buildEnhancementFilter } from './overlays/cinema-filter';
@@ -377,6 +377,50 @@ function applyOverlay(settings: OverlayConfig): void {
 // ---------------------------------------------------------------------------
 
 initPlaybackHandlers();
+
+// Check for a last recording to offer recovery
+void (async () => {
+  try {
+    const info = await window.mainAPI.hasLastRecording();
+    if (info.exists && info.size > 0) {
+      const age = Date.now() - info.modified;
+      const ageStr = age < 3600_000
+        ? `${Math.round(age / 60_000)} min ago`
+        : age < 86400_000
+          ? `${Math.round(age / 3600_000)} hr ago`
+          : `${Math.round(age / 86400_000)} days ago`;
+      const sizeMB = (info.size / (1024 * 1024)).toFixed(1);
+
+      // Show a non-blocking banner at the top of the preview
+      const banner = document.createElement('div');
+      banner.className = 'recovery-banner';
+      banner.innerHTML = `
+        <span class="recovery-text">Last recording available (${sizeMB} MB, ${ageStr})</span>
+        <button class="recovery-btn recovery-btn--open">Review</button>
+        <button class="recovery-btn recovery-btn--dismiss">Dismiss</button>
+      `;
+      document.body.appendChild(banner);
+
+      const openBtn = banner.querySelector('.recovery-btn--open') as HTMLButtonElement;
+      const dismissBtn = banner.querySelector('.recovery-btn--dismiss') as HTMLButtonElement;
+
+      dismissBtn.addEventListener('click', () => banner.remove());
+
+      openBtn.addEventListener('click', async () => {
+        banner.remove();
+        try {
+          const buffer = await window.mainAPI.loadLastRecording();
+          await enterPlaybackFromBuffer(buffer);
+        } catch (err) {
+          console.warn('[recovery] Failed to load last recording:', err);
+        }
+      });
+
+    }
+  } catch {
+    // No last recording — ignore
+  }
+})();
 
 // ---------------------------------------------------------------------------
 // Init — window resize + screen drag
