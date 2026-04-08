@@ -1,69 +1,61 @@
-# supahscreenrecordah
+# supahscreenrecordah (yaatuber)
 
-macOS/Windows desktop screen + camera recorder built with Electron & TypeScript. Floating toolbar UI, overlays (name tags, waveforms, action feed), and FFmpeg-based export.
+macOS/Windows desktop screen + camera recorder built with Electron & TypeScript. Floating toolbar UI, overlays, and FFmpeg-based export. Currently adding a "Shorts Mode" for 9:16 short-form content.
+
+## Current Focus
+Section: Shorts Mode (9:16 vertical recording)
+Files: src/renderer/main/preview.ts, src/renderer/main/recording.ts, src/renderer/styles/main.css, src/main/ipc/overlay.ts, src/main/index.ts
+
+## Tech Stack
+- **Language:** TypeScript (strict mode)
+- **Framework:** Electron 35
+- **Bundler:** tsdown (renderer IIFE), tsc (main/preload)
+- **Test:** vitest
+- **Check:** `npm run typecheck && npm run build`
+
+## Dev Notes
+- Windows Electron binary manually installed at `node_modules/electron/dist/electron.exe` (path.txt = `electron.exe`). Linux binary backed up as `electron-linux-backup`.
+- Launch from WSL: `cmd.exe /C "cd /D E:\Projects\Yaatuber && node node_modules\electron\cli.js ."`
+- `session.defaultSession.clearCache()` added to `app.whenReady()` in main/index.ts to bust Chromium disk cache during dev.
+- Activation system from v2 exe was reverse-engineered and bypassed (educational challenge). Patched exe at `C:\Users\SPARTAN PC\Downloads\yaatuber-win-unpacked\`.
+
+## Last Session (2026-04-07)
+- Reverse-engineered yaatuber v2.0.0 exe: extracted asar, compared v1 vs v2, patched activation (`isActivated() → return true`)
+- Started building 9:16 "Shorts Mode" — clean vertical layout with NO overlays (no name, socials, waveform, CTA, borders)
+- **Window resize works**: main process resizes window + sets aspect ratio lock on ratio change (overlay.ts). Fixed min-size ordering bug.
+- **CSS shorts-mode class**: hides all overlays via `display: none !important`, strips borders
+- **`drawShortsFrame()`** added to recording.ts: clean compositor that only draws screen (top 65%) + camera (bottom 35%) with cover-crop, supports zoom + webcam blur
+- **`fitShortsLayout()`** added to preview.ts: sets screen + camera sizes via `setAttribute('style', ...)` with `!important` on every property
+- **BUG: Layout not visually applying despite correct computed styles.** Logs confirm `objectFit=cover, w=434px, h=478px` but user still sees 16:9 forced layout. Tried: cssText, setAttribute, !important, transition:none. Computed styles read back correctly but visual doesn't match. Suspect CSS transitions/animations from `.screen-video` class, a stale Chromium compositor layer, or the video element's intrinsic sizing overriding object-fit in Electron's renderer.
+- Stopped at: debugging why inline styles with correct computed values don't visually render
+
+## Next Steps
+1. **FIX the 9:16 preview layout bug** — computed styles are correct but visuals don't match. Try: (a) completely remove `.screen-video` class in shorts mode and re-add a minimal class, (b) use a separate `<video>` element for shorts mode, (c) wrap screen in a clipping div, (d) check if Electron's GPU compositor is caching the old layer, (e) inspect in DevTools Elements panel to see actual rendered box
+2. **Webcam background blur toggle** — code exists in `src/renderer/main/overlays/webcam-blur.ts` (MediaPipe selfie segmenter), already wired in `drawShortsFrame`. Needs a UI toggle accessible in shorts mode (toolbar button or keyboard shortcut)
+3. **Auto-captions** — Whisper word-level timestamps, filler removal, 1-2 word bold display between screen and camera zones. Burn in via FFmpeg ASS subtitles at export
+4. **Silence/filler auto-cut** — combine Whisper word output with existing `silence.js` detection + timeline segment system to auto-remove dead air and "uh/um"
+5. **Cursor-following crop** — for 9:16, instead of showing full desktop, track cursor position and crop a narrow region. Spring physics already exist in `src/shared/zoom.ts` and `src/renderer/main/zoom.ts`
 
 ## Project Structure
-
 ```
 src/
 ├── main/               # Electron main process
-│   ├── ipc/            # IPC handlers by domain (recording, devices, config…)
-│   ├── services/       # Business logic (activation, FFmpeg, permissions)
+│   ├── ipc/            # IPC handlers by domain
+│   ├── services/       # Business logic (FFmpeg, permissions, activation)
 │   ├── windows/        # Window factory functions
-│   └── input/          # Global input detection (keyboard, mouse via uiohook)
-├── preload/            # Context bridge scripts per window
+│   └── input/          # Global input (keyboard, mouse via uiohook)
+├── preload/            # Context bridge scripts
 ├── renderer/           # Browser-side code
 │   ├── main/           # Preview window + overlay system
 │   ├── toolbar/        # Floating recording toolbar
 │   ├── edit-modal/     # Post-recording overlay settings
-│   ├── onboarding/     # Setup wizard (permissions & dependencies)
-│   └── lib/            # Shared utilities (audio FX, perf monitor)
+│   └── lib/            # Shared utilities (perf monitor)
 ├── shared/             # Code shared between main & renderer
 └── types/              # TypeScript type definitions
-pages/                  # HTML entry points (index, toolbar, edit-modal, onboarding)
-assets/                 # Audio assets (notification sounds)
-native/macos-cursor/    # Native C++/Obj-C addon for macOS cursor tracking
-dist/                   # Compiled output
-release/                # Packaged application
+pages/                  # HTML entry points
 ```
 
-## Tech Stack
-
-- **Language:** TypeScript (strict mode)
-- **Framework:** Electron 35
-- **Bundler:** tsup (renderer), tsc (main/preload)
-- **Packaging:** electron-builder
-- **Native:** node-addon-api, node-gyp (macOS cursor module)
-- **Runtime dep:** uiohook-napi (global input hooking)
-
-## Commands
-
-```bash
-npm run dev              # Start Electron in dev mode
-npm run build            # Build all (main + preload + renderer)
-npm run build:main       # Compile main process
-npm run build:preload    # Compile preload scripts
-npm run build:renderer   # Bundle renderer processes with tsup
-npm run typecheck        # Type-check without emitting
-npm run dist:win         # Build & package for Windows
-```
-
-## Code Quality Checks
-
-Run before every commit:
-
-```bash
-npm run typecheck        # Zero TypeScript errors allowed
-npm run build            # Must compile cleanly
-```
-
-No ESLint or Prettier configured — maintain consistent style manually.
-
-## Organization Rules
-
-- **One file per component/handler** — no monolith files.
-- **Single responsibility** — each IPC handler, service, and renderer module does one thing.
-- **Electron process separation** — never import main-process code in renderer or vice versa; use preload bridges.
-- **Domain-split IPC** — add new IPC handlers in `src/main/ipc/` as separate files by feature.
-- **Shared types** go in `src/shared/` or `src/types/`.
-- **No dead code** — delete unused imports, functions, and files.
+## Code Quality
+- `npm run typecheck` — zero errors
+- `npm run build` — must compile cleanly
+- No ESLint/Prettier — maintain consistent style manually

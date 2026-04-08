@@ -16,14 +16,19 @@
       <!-- Background canvas — ambient particles rendered behind everything -->
       <canvas id="bg-canvas" class="bg-canvas"></canvas>
 
-      <!-- Screen capture on the left -->
-      <video id="screen-video" class="screen-video" autoplay muted playsinline></video>
+      <!-- Screen capture on the left (wrapper clips overflow in shorts mode) -->
+      <div id="screen-wrapper" class="screen-wrapper">
+        <video id="screen-video" class="screen-video" autoplay muted playsinline></video>
+      </div>
       <!-- Camera portrait on the right (container holds video + waveform) -->
       <div id="camera-container" class="camera-container">
         <video id="camera-video" class="camera-video" autoplay muted playsinline></video>
         <!-- Audio waveform visualizer — bottom of camera -->
         <canvas id="waveform-canvas" class="waveform-canvas"></canvas>
       </div>
+      <!-- Shorts preview canvas — replaces video elements in 9:16 mode -->
+      <canvas id="shorts-preview-canvas" class="shorts-preview-canvas"></canvas>
+
       <!-- Action feed overlay — drawn on top of camera -->
       <canvas id="action-feed-canvas" class="action-feed-canvas"></canvas>
 

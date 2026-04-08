@@ -98,12 +98,30 @@ export function registerOverlayHandlers(): void {
   });
 
   // ── Aspect ratio update (toolbar → main window) ────────────────
-  ipcMain.on(Channels.ASPECT_RATIO_UPDATE, (event, ratio) => {
+  ipcMain.on(Channels.ASPECT_RATIO_UPDATE, (event, ratio: string) => {
     if (!isValidSender(event)) {
       return;
     }
     const main = getMainWindow();
     if (main && !main.isDestroyed()) {
+      // Resize the window to match the new aspect ratio so the preview
+      // isn't pillarboxed inside a mismatched frame.
+      const RATIO_CONFIGS: Record<string, { w: number; h: number; minW: number; minH: number }> = {
+        '16:9': { w: 1280, h: 720, minW: 854, minH: 480 },
+        '9:16': { w: 450, h: 800, minW: 360, minH: 640 },
+        '1:1':  { w: 720, h: 720, minW: 480, minH: 480 },
+        '4:5':  { w: 640, h: 800, minW: 480, minH: 600 },
+      };
+      const cfg = RATIO_CONFIGS[ratio];
+      if (cfg) {
+        const [rw, rh] = ratio.split(':').map(Number);
+        // Clear the old minimum first — it may block the new size
+        // (e.g. landscape minWidth 854 prevents shrinking to 450 for vertical)
+        main.setMinimumSize(1, 1);
+        main.setAspectRatio(rw / rh);
+        main.setSize(cfg.w, cfg.h, true);
+        main.setMinimumSize(cfg.minW, cfg.minH);
+      }
       main.webContents.send(Channels.ASPECT_RATIO_UPDATE, ratio);
     }
   });

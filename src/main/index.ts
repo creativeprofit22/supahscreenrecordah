@@ -20,6 +20,17 @@ import { isValidSender } from './ipc/helpers';
 import { loadConfig } from './store';
 import { Channels } from '../shared/channels';
 import { registerAppScheme, registerAppProtocolHandler } from './services/protocol';
+import { findMatchingSource } from './services/source-matching';
+
+/** Append debug lines to a log file next to the exe for easy inspection. */
+function debugLog(line: string): void {
+  try {
+    const logPath = path.join(app.getPath('userData'), 'display-media-debug.log');
+    fs.appendFileSync(logPath, `${new Date().toISOString()} ${line}\n`);
+  } catch {
+    // ignore
+  }
+}
 
 /** Source ID selected by the renderer for the next getDisplayMedia call. */
 let pendingScreenSourceId: string | null = null;
@@ -46,6 +57,9 @@ registerAppScheme();
 app
   .whenReady()
   .then(async () => {
+    // Clear Chromium's disk cache so rebuilt CSS/JS is always picked up.
+    await session.defaultSession.clearCache();
+
     // Install the app:// protocol handler for serving local files securely.
     registerAppProtocolHandler();
 
@@ -101,20 +115,19 @@ app
           const sources = await desktopCapturer.getSources({
             types: ['screen', 'window'],
           });
-          let target = pendingScreenSourceId
-            ? sources.find((s) => s.id === pendingScreenSourceId)
-            : undefined;
-          // If ID match failed (e.g. supplemental window from OS enumeration),
-          // try matching by window title
-          if (!target && pendingScreenSourceName) {
-            target = sources.find((s) => s.name === pendingScreenSourceName);
-          }
-          target = target ?? sources[0];
+
+          debugLog(`Looking for id="${pendingScreenSourceId}" name="${pendingScreenSourceName}"`);
+          debugLog(`Available sources: ${sources.map((s) => `${s.id} "${s.name}"`).join(', ')}`);
+
+          const match = findMatchingSource(sources, pendingScreenSourceId, pendingScreenSourceName);
+
+          debugLog(`Matched via ${match?.method}: ${match?.source.id} "${match?.source.name}"`);
+
           pendingScreenSourceId = null;
           pendingScreenSourceName = null;
 
-          if (target) {
-            callback({ video: target, audio: 'loopback' });
+          if (match) {
+            callback({ video: match.source as Electron.DesktopCapturerSource, audio: 'loopback' });
           } else {
             console.error('No screen sources available');
             callback({});

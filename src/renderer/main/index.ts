@@ -7,7 +7,7 @@
 import '../lib/pep'; // Auto-registers click sound effect
 import * as perfMonitor from '../lib/perf-monitor';
 
-import { handlePreviewUpdate, initResizeHandler, initScreenDrag, applyAspectRatioLayout } from './preview';
+import { handlePreviewUpdate, initResizeHandler, initScreenDrag, applyAspectRatioLayout, isShortsMode } from './preview';
 import { startRecording, stopRecording, pauseRecording, resumeRecording, isRecordingActive, refreshRecLayoutCache } from './recording';
 import { runCountdown, skipCountdown, isCountdownActive } from './overlays/countdown';
 import { initPlaybackHandlers } from './playback';
@@ -117,7 +117,9 @@ window.mainAPI.onRecordingStart((micDeviceId) => {
     startRecording(micDeviceId).catch((error) => {
       console.error('Failed to start recording:', error);
     });
-    startCtaLoop();
+    if (!isShortsMode()) {
+      startCtaLoop();
+    }
   };
 
   if (countdownEnabled) {

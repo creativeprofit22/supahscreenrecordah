@@ -15,17 +15,21 @@ import {
   currentMicDeviceId,
   ambientParticlesEnabled,
   activeAspectRatio, setActiveAspectRatio,
+  currentZoom,
+  activeWebcamBlur, activeWebcamBlurIntensity,
 } from './state';
 import type { AspectRatio } from '../../shared/types';
 import { ASPECT_RATIOS } from '../../shared/feature-types';
 import {
-  screenVideo, cameraContainer, cameraVideo,
+  screenWrapper, screenVideo, cameraContainer, cameraVideo,
   previewContainer, idleState, waveformCanvas,
+  shortsPreviewCanvas, shortsPreviewCtx,
 } from './dom';
 import { positionCameraName } from './overlays/camera-name';
 import { positionSocialsOverlay } from './overlays/socials';
 import { refreshBlurRegionPositions } from './overlays/blur-regions';
-import { startZoomLoop, stopZoomLoop, sizeBgCanvas } from './zoom';
+import { startZoomLoop, stopZoomLoop, sizeBgCanvas, getMouseRelativeToCaptured } from './zoom';
+import { processBlurFrame } from './overlays/webcam-blur';
 import { startWaveformCapture, stopWaveformCapture, sizeWaveformCanvas } from './overlays/waveform';
 import type { PreviewSelection } from '../../shared/types';
 
@@ -40,16 +44,27 @@ export function fitScreenVideo(): void {
     return;
   }
 
+  // Shorts mode has its own layout function
+  if (isShortsMode()) {
+    fitShortsLayout();
+    return;
+  }
+
+  // Reset shorts-mode overrides
+  stopShortsPreviewLoop();
+  screenWrapper.removeAttribute('style');
+  screenVideo.style.objectFit = '';
+
   const padding = 24;
   const hasCam = cameraContainer.classList.contains('active');
   const clientW = previewContainer.clientWidth;
   const clientH = previewContainer.clientHeight;
-  const isVertical = activeAspectRatio === '9:16' || activeAspectRatio === '4:5';
+  const isVertical = activeAspectRatio === '4:5';
 
   if (isVertical && hasCam) {
-    // Vertical/Portrait: screen fills below camera, stacked vertically
-    const camHeightPct = activeAspectRatio === '9:16' ? 0.30 : 0.25;
-    const camH = clientH * camHeightPct + padding; // camera zone height + gap
+    // Portrait (4:5): screen fills below camera, stacked vertically
+    const camHeightPct = 0.25;
+    const camH = clientH * camHeightPct + padding;
     const maxW = clientW - padding * 2;
     const maxH = clientH - camH - padding;
     const ratio = natW / natH;
@@ -63,7 +78,6 @@ export function fitScreenVideo(): void {
 
     screenVideo.style.width = `${Math.round(w)}px`;
     screenVideo.style.height = `${Math.round(h)}px`;
-    // Position below camera — override vertical centering
     screenVideo.style.top = `${Math.round(camH + padding)}px`;
     screenVideo.style.transform = 'none';
     setScreenX(Math.round((clientW - w) / 2));
@@ -153,13 +167,16 @@ function clampScreenX(): void {
 }
 
 function resetScreenPosition(): void {
+  if (isShortsMode()) return; // shorts mode handles its own positioning
+
   const padding = 24;
   const hasCam = cameraContainer.classList.contains('active');
   const clientW = previewContainer.clientWidth;
   const videoW = screenVideo.offsetWidth;
+  const isVertical = activeAspectRatio === '4:5';
 
-  if (!hasCam) {
-    // No camera — centre the screen in the container
+  if (!hasCam || isVertical || activeAspectRatio === '1:1') {
+    // No camera, vertical, or square — centre the screen horizontally
     setScreenX(Math.round((clientW - videoW) / 2));
   } else if (currentLayout === 'camera-left') {
     const camZoneW = clientW * 0.22 + padding + padding;
@@ -174,7 +191,22 @@ function resetScreenPosition(): void {
 // ---------------------------------------------------------------------------
 
 export function applyLayout(): void {
-  if (currentLayout === 'camera-left') {
+  if (isShortsMode()) {
+    fitShortsLayout();
+    return;
+  }
+
+  const isVertical = activeAspectRatio === '4:5';
+  const isSquare = activeAspectRatio === '1:1';
+
+  if (isVertical) {
+    cameraContainer.style.left = '24px';
+    cameraContainer.style.right = '24px';
+  } else if (isSquare) {
+    // Square: camera in corner — always bottom-right
+    cameraContainer.style.left = '';
+    cameraContainer.style.right = '24px';
+  } else if (currentLayout === 'camera-left') {
     cameraContainer.style.right = '';
     cameraContainer.style.left = '24px';
   } else {
@@ -422,6 +454,10 @@ export function handlePreviewUpdate(selection: PreviewSelection): void {
 
 export function initResizeHandler(): void {
   window.addEventListener('resize', () => {
+    if (isShortsMode()) {
+      fitShortsLayout();
+      return;
+    }
     fitScreenVideo();
     positionCameraName(positionSocialsOverlay);
     refreshBlurRegionPositions();
@@ -487,20 +523,25 @@ export function initScreenDrag(): void {
  * with letterboxing/pillarboxing inside the window. Camera and screen
  * positions adapt based on the selected ratio.
  */
+/** Whether the app is in shorts mode (clean vertical output). */
+export function isShortsMode(): boolean {
+  return activeAspectRatio === '9:16';
+}
+
 export function applyAspectRatioLayout(ratio: AspectRatio): void {
   setActiveAspectRatio(ratio);
-  const config = ASPECT_RATIOS[ratio];
 
-  // The preview container always fills the window (no CSS aspect-ratio).
-  // The recording canvas handles the actual output dimensions; the preview
-  // adapts internal layout (camera position, screen fit) to match.
-  void config;
+  // Remove all aspect-ratio-specific classes
+  previewContainer.classList.remove('ar-landscape', 'ar-vertical', 'ar-square', 'ar-portrait', 'shorts-mode');
 
-  // For non-landscape ratios, adjust camera container layout
-  // Remove all aspect-ratio-specific classes first
-  previewContainer.classList.remove('ar-landscape', 'ar-vertical', 'ar-square', 'ar-portrait');
+  // Stop shorts canvas loop and restore video elements when leaving shorts mode
+  stopShortsPreviewLoop();
+  screenWrapper.removeAttribute('style');
 
-  if (ratio === '16:9') {
+  if (ratio === '9:16') {
+    // Shorts mode: canvas-based preview replaces video elements
+    previewContainer.classList.add('ar-vertical', 'shorts-mode');
+  } else if (ratio === '16:9') {
     previewContainer.classList.add('ar-landscape');
     // Default layout — camera on side (22% width, 70% height)
     cameraContainer.style.width = '';
@@ -510,19 +551,8 @@ export function applyAspectRatioLayout(ratio: AspectRatio): void {
     cameraContainer.style.right = '';
     cameraContainer.style.transform = '';
     cameraContainer.style.bottom = '';
-  } else if (ratio === '9:16') {
-    previewContainer.classList.add('ar-vertical');
-    // Vertical: camera on TOP (~30% height), full width
-    cameraContainer.style.width = 'calc(100% - 48px)';
-    cameraContainer.style.height = '30%';
-    cameraContainer.style.top = '24px';
-    cameraContainer.style.left = '24px';
-    cameraContainer.style.right = '24px';
-    cameraContainer.style.transform = 'none';
-    cameraContainer.style.bottom = '';
   } else if (ratio === '1:1') {
     previewContainer.classList.add('ar-square');
-    // Square: camera in bottom-right corner (small)
     cameraContainer.style.width = '30%';
     cameraContainer.style.height = '35%';
     cameraContainer.style.top = '';
@@ -532,7 +562,6 @@ export function applyAspectRatioLayout(ratio: AspectRatio): void {
     cameraContainer.style.transform = 'none';
   } else if (ratio === '4:5') {
     previewContainer.classList.add('ar-portrait');
-    // Portrait: camera on top (~25% height), full width
     cameraContainer.style.width = 'calc(100% - 48px)';
     cameraContainer.style.height = '25%';
     cameraContainer.style.top = '24px';
@@ -542,8 +571,152 @@ export function applyAspectRatioLayout(ratio: AspectRatio): void {
     cameraContainer.style.bottom = '';
   }
 
-  // Re-fit screen and overlays
-  fitScreenVideo();
-  positionCameraName(positionSocialsOverlay);
-  refreshBlurRegionPositions();
+  // Wait for the main-process window resize to settle before reading dimensions
+  setTimeout(() => {
+    if (ratio === '9:16') {
+      fitShortsLayout();
+    } else if (ratio === '16:9') {
+      applyLayout();
+    } else {
+      fitScreenVideo();
+      positionCameraName(positionSocialsOverlay);
+    }
+    refreshBlurRegionPositions();
+  }, 200);
+}
+
+/** Shorts preview render loop handle — cancelled when leaving shorts mode. */
+let shortsPreviewRAF: number | null = null;
+
+/** Fit the shorts mode layout — renders both videos on a canvas.
+ *  Chromium's GPU compositor ignores CSS sizing/transform/object-fit on <video>
+ *  elements with MediaStream sources, so we bypass it entirely with drawImage. */
+export function fitShortsLayout(): void {
+  const clientW = previewContainer.clientWidth;
+  const clientH = previewContainer.clientHeight;
+
+  // Size the canvas pixel buffer to match the container (1:1 CSS-to-pixel)
+  shortsPreviewCanvas.width = clientW;
+  shortsPreviewCanvas.height = clientH;
+
+  // Hide the actual video elements — the canvas replaces them
+  screenWrapper.style.display = 'none';
+  cameraContainer.style.display = 'none';
+
+  // Start the render loop if not already running
+  if (shortsPreviewRAF === null) {
+    startShortsPreviewLoop();
+  }
+}
+
+/** Stop the shorts preview render loop and restore video elements. */
+export function stopShortsPreviewLoop(): void {
+  if (shortsPreviewRAF !== null) {
+    cancelAnimationFrame(shortsPreviewRAF);
+    shortsPreviewRAF = null;
+  }
+  // Restore video elements
+  screenWrapper.removeAttribute('style');
+  cameraContainer.removeAttribute('style');
+}
+
+function startShortsPreviewLoop(): void {
+  const draw = (): void => {
+    if (!isShortsMode()) {
+      shortsPreviewRAF = null;
+      return;
+    }
+
+    const w = shortsPreviewCanvas.width;
+    const h = shortsPreviewCanvas.height;
+    const ctx = shortsPreviewCtx;
+
+    // Black background
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, w, h);
+
+    // Camera takes the bottom 35%, screen gets the top 65%
+    const camZoneH = Math.round(h * 0.35);
+    const screenZoneH = h - camZoneH;
+
+    // ── Screen (top portion) — cover-crop with zoom support ──
+    if (screenVideo.classList.contains('active') && screenStream) {
+      const natW = screenVideo.videoWidth;
+      const natH = screenVideo.videoHeight;
+      if (natW && natH) {
+        const dstAspect = w / screenZoneH;
+        let sx = 0, sy = 0, sw = natW, sh = natH;
+
+        // Zoom: crop source to zoom region first
+        if (currentZoom > 1.0) {
+          sw = natW / currentZoom;
+          sh = natH / currentZoom;
+          const relPos = getMouseRelativeToCaptured();
+          if (relPos) {
+            sx = Math.max(0, Math.min(natW - sw, relPos.relX * natW - sw / 2));
+            sy = Math.max(0, Math.min(natH - sh, relPos.relY * natH - sh / 2));
+          } else {
+            sx = (natW - sw) / 2;
+            sy = (natH - sh) / 2;
+          }
+        }
+
+        // Cover crop on the (possibly zoomed) source region
+        const zoomedAspect = sw / sh;
+        if (zoomedAspect > dstAspect) {
+          const cropW = sh * dstAspect;
+          sx += (sw - cropW) / 2;
+          sw = cropW;
+        } else {
+          const cropH = sw / dstAspect;
+          sy += (sh - cropH) / 2;
+          sh = cropH;
+        }
+
+        ctx.drawImage(screenVideo, sx, sy, sw, sh, 0, 0, w, screenZoneH);
+      }
+    }
+
+    // ── Camera (bottom portion) — cover-crop, mirrored, with webcam blur ──
+    if (cameraContainer.classList.contains('active') && cameraVideo.videoWidth) {
+      const natW = cameraVideo.videoWidth;
+      const natH = cameraVideo.videoHeight;
+      const dstAspect = w / camZoneH;
+      const vidAspect = natW / natH;
+      let sx: number, sy: number, sw: number, sh: number;
+
+      if (vidAspect > dstAspect) {
+        sh = natH;
+        sw = sh * dstAspect;
+        sx = (natW - sw) / 2;
+        sy = 0;
+      } else {
+        sw = natW;
+        sh = sw / dstAspect;
+        sx = 0;
+        sy = (natH - sh) / 2;
+      }
+
+      // Mirror horizontally
+      ctx.save();
+      ctx.translate(w, screenZoneH);
+      ctx.scale(-1, 1);
+
+      // Use background-blurred frame when webcam blur is active
+      const blurResult = activeWebcamBlur
+        ? processBlurFrame(cameraVideo, activeWebcamBlurIntensity)
+        : null;
+      if (blurResult) {
+        ctx.drawImage(blurResult, sx, sy, sw, sh, 0, 0, w, camZoneH);
+      } else {
+        ctx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, w, camZoneH);
+      }
+
+      ctx.restore();
+    }
+
+    shortsPreviewRAF = requestAnimationFrame(draw);
+  };
+
+  shortsPreviewRAF = requestAnimationFrame(draw);
 }

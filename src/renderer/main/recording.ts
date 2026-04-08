@@ -314,6 +314,124 @@ function logFrameProfile(): void {
 }
 
 // ---------------------------------------------------------------------------
+// drawShortsFrame — clean vertical compositor, no overlays
+// ---------------------------------------------------------------------------
+
+function drawShortsFrame(): void {
+  if (!recCtx || !recCanvas) return;
+  if (recMediaRecorder && recMediaRecorder.state === 'paused') return;
+  if (recFrameInProgress) { recProfileDropped++; return; }
+  recFrameInProgress = true;
+
+  const t0 = performance.now();
+  const w = recCanvas.width;   // 1080
+  const h = recCanvas.height;  // 1920
+
+  // Black background
+  recCtx.fillStyle = '#000000';
+  recCtx.fillRect(0, 0, w, h);
+
+  // Camera takes the bottom 35%, screen gets the top 65%
+  const camZoneH = Math.round(h * 0.35);
+  const screenZoneH = h - camZoneH;
+
+  // Update smooth mouse for zoom
+  updateSmoothMouse();
+
+  // ── Screen (top portion) — cover-style: fill width, center-crop vertically ──
+  if (screenVideo.classList.contains('active') && screenStream) {
+    const natW = screenVideo.videoWidth;
+    const natH = screenVideo.videoHeight;
+    if (natW && natH) {
+      // Cover crop: fill the full screen zone, crop overflow
+      const dstAspect = w / screenZoneH;
+      const srcAspect = natW / natH;
+      let sx = 0, sy = 0, sw = natW, sh = natH;
+
+      if (currentZoom > 1.0) {
+        // Zoom: crop source to zoom region first, then cover-crop
+        sw = natW / currentZoom;
+        sh = natH / currentZoom;
+        const relPos = getMouseRelativeToCaptured();
+        if (relPos) {
+          sx = Math.max(0, Math.min(natW - sw, relPos.relX * natW - sw / 2));
+          sy = Math.max(0, Math.min(natH - sh, relPos.relY * natH - sh / 2));
+        } else {
+          sx = (natW - sw) / 2;
+          sy = (natH - sh) / 2;
+        }
+      }
+
+      // Apply cover crop on the (possibly zoomed) source region
+      const zoomedAspect = sw / sh;
+      if (zoomedAspect > dstAspect) {
+        // Source is wider — crop sides
+        const cropW = sh * dstAspect;
+        sx += (sw - cropW) / 2;
+        sw = cropW;
+      } else {
+        // Source is taller — crop top/bottom
+        const cropH = sw / dstAspect;
+        sy += (sh - cropH) / 2;
+        sh = cropH;
+      }
+
+      recCtx.drawImage(screenVideo, sx, sy, sw, sh, 0, 0, w, screenZoneH);
+    }
+  }
+
+  // ── Camera (bottom portion) ──
+  if (cameraContainer.classList.contains('active') && cameraVideo.videoWidth) {
+    const natW = cameraVideo.videoWidth;
+    const natH = cameraVideo.videoHeight;
+    const camY = screenZoneH;
+
+    // Object-fit: cover crop for the camera
+    const drawAspect = w / camZoneH;
+    const vidAspect = natW / natH;
+    let sx: number, sy: number, sw: number, sh: number;
+    if (vidAspect > drawAspect) {
+      sh = natH;
+      sw = sh * drawAspect;
+      sx = (natW - sw) / 2;
+      sy = 0;
+    } else {
+      sw = natW;
+      sh = sw / drawAspect;
+      sx = 0;
+      sy = (natH - sh) / 2;
+    }
+
+    // Mirror horizontally
+    recCtx.save();
+    recCtx.translate(w, camY);
+    recCtx.scale(-1, 1);
+
+    // Use background-blurred frame when webcam blur is active
+    const blurResult = activeWebcamBlur
+      ? processBlurFrame(cameraVideo, activeWebcamBlurIntensity)
+      : null;
+    if (blurResult) {
+      recCtx.drawImage(blurResult, sx, sy, sw, sh, 0, 0, w, camZoneH);
+    } else {
+      recCtx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, w, camZoneH);
+    }
+
+    recCtx.restore();
+  }
+
+  const tEnd = performance.now();
+  recProfileAccum.total += tEnd - t0;
+  recProfileFrames++;
+
+  // Push frame into capture stream
+  if (recCaptureTrack) {
+    recCaptureTrack.requestFrame();
+  }
+  recFrameInProgress = false;
+}
+
+// ---------------------------------------------------------------------------
 // drawRecordingFrame — THE BIG ONE: composites everything per frame
 // ---------------------------------------------------------------------------
 
@@ -382,9 +500,16 @@ function drawRecordingFrame(): void {
     const layoutW = screenVideo.offsetWidth;
     const layoutH = screenVideo.offsetHeight;
     const layoutLeft = screenVideo.offsetLeft;
-    // offsetTop gives CSS `top: 50%` but doesn't include `translateY(-50%)`
-    // which visually centres the element, so we compute the centred position manually.
-    const layoutTop = screenVideo.offsetTop - layoutH / 2;
+    // In landscape (16:9), screen video is centred with `top: 50%; translateY(-50%)`.
+    // offsetTop gives the CSS `top: 50%` position, so subtract half the height
+    // to get the actual visual top.
+    // In vertical/portrait modes (9:16, 4:5), the CSS override sets `top: auto;
+    // transform: none;` and fitScreenVideo() sets an explicit top value, so
+    // offsetTop already reflects the true visual position — no adjustment needed.
+    const isVerticalLayout = activeAspectRatio === '9:16' || activeAspectRatio === '4:5';
+    const layoutTop = isVerticalLayout
+      ? screenVideo.offsetTop
+      : screenVideo.offsetTop - layoutH / 2;
 
     const x = offsetX + layoutLeft * scale;
     const y = offsetY + layoutTop * scale;
@@ -892,8 +1017,10 @@ export async function startRecording(micDeviceId: string | null): Promise<void> 
     exitPlaybackMode();
   }
 
-  recAnimFrame = setInterval(drawRecordingFrame, 1000 / REC_FRAMERATE);
-  recLayoutCache = buildRecLayoutCache();
+  // Use the clean shorts compositor for 9:16, full overlay compositor for everything else
+  const frameFn = activeAspectRatio === '9:16' ? drawShortsFrame : drawRecordingFrame;
+  recAnimFrame = setInterval(frameFn, 1000 / REC_FRAMERATE);
+  recLayoutCache = activeAspectRatio === '9:16' ? null : buildRecLayoutCache();
 
   // Get canvas video stream in manual mode (0 = no automatic capture).
   // We call requestFrame() explicitly after each draw so frames are captured

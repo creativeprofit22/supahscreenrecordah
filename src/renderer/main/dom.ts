@@ -1,5 +1,6 @@
 // DOM references — grabbed once at init, used across all modules
 
+export const screenWrapper = document.getElementById('screen-wrapper') as HTMLDivElement;
 export const screenVideo = document.getElementById('screen-video') as HTMLVideoElement;
 export const cameraContainer = document.getElementById('camera-container') as HTMLDivElement;
 export const cameraVideo = document.getElementById('camera-video') as HTMLVideoElement;
@@ -11,6 +12,8 @@ export const actionFeedCanvas = document.getElementById('action-feed-canvas') as
 export const actionFeedCtx = actionFeedCanvas.getContext('2d')!;
 export const bgCanvas = document.getElementById('bg-canvas') as HTMLCanvasElement;
 export const bgCtx = bgCanvas.getContext('2d')!;
+export const shortsPreviewCanvas = document.getElementById('shorts-preview-canvas') as HTMLCanvasElement;
+export const shortsPreviewCtx = shortsPreviewCanvas.getContext('2d')!;
 export const idleState = document.getElementById('idle-state') as HTMLDivElement;
 export const previewContainer = document.querySelector('.preview-container') as HTMLDivElement;
 export const playbackContainer = document.getElementById('playback-container') as HTMLDivElement;

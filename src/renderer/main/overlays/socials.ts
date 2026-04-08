@@ -1,7 +1,7 @@
 // Social icons overlay — builds DOM and positions below camera
 
 import { cameraSocials, cameraContainer, previewContainer } from '../dom';
-import { currentLayout } from '../state';
+import { currentLayout, activeAspectRatio } from '../state';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -111,22 +111,36 @@ export function positionSocialsOverlay(): void {
     cameraSocials.classList.remove('active');
     return;
   }
-  // Position below the camera
-  const containerH = previewContainer.clientHeight;
-  const camH = containerH * 0.7;
-  const camBottom = (containerH + camH) / 2;
-  const socialsTop = camBottom + 8;
-  const camWidthPct = 22;
-  if (currentLayout === 'camera-left') {
-    cameraSocials.style.right = '';
+
+  const isVertical = activeAspectRatio === '9:16' || activeAspectRatio === '4:5';
+
+  if (isVertical) {
+    // Vertical: socials go below the bottom edge of the screen video, centred
+    // Use the camera container's actual bottom edge + gap
+    const camBottom = cameraContainer.offsetTop + cameraContainer.offsetHeight;
     cameraSocials.style.left = '24px';
+    cameraSocials.style.right = '';
     cameraSocials.style.transform = '';
+    cameraSocials.style.top = `${camBottom + 8}px`;
   } else {
-    cameraSocials.style.left = '';
-    cameraSocials.style.right = `calc(24px + ${camWidthPct}%)`;
-    cameraSocials.style.transform = 'translateX(100%)';
+    // Landscape: position below the camera (22% wide, 70% tall, vertically centred)
+    const containerH = previewContainer.clientHeight;
+    const camH = containerH * 0.7;
+    const camBottom = (containerH + camH) / 2;
+    const socialsTop = camBottom + 8;
+    const camWidthPct = 22;
+    if (currentLayout === 'camera-left') {
+      cameraSocials.style.right = '';
+      cameraSocials.style.left = '24px';
+      cameraSocials.style.transform = '';
+    } else {
+      cameraSocials.style.left = '';
+      cameraSocials.style.right = `calc(24px + ${camWidthPct}%)`;
+      cameraSocials.style.transform = 'translateX(100%)';
+    }
+    cameraSocials.style.top = `${Math.round(socialsTop)}px`;
   }
-  cameraSocials.style.top = `${Math.round(socialsTop)}px`;
+
   cameraSocials.classList.add('active');
 }
 

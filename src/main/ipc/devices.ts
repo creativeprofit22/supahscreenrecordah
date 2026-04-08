@@ -106,6 +106,11 @@ function getWindowsAllWindows(): Promise<Win32Window[]> {
   });
 }
 
+import {
+  WINDOWS_PROCESS_BLOCKLIST,
+  extractAppSuffix,
+} from '../services/device-filters';
+
 export function registerDeviceHandlers(): void {
   ipcMain.handle(Channels.DEVICES_GET_SCREENS, async (event) => {
     if (!isValidSender(event)) {
@@ -115,13 +120,8 @@ export function registerDeviceHandlers(): void {
       types: ['screen', 'window'],
       thumbnailSize: { width: 320, height: 180 },
     });
-    const ownNames = new Set([
-      'supahscreenrecordah',
-      'supahscreenrecordah toolbar',
-      'supahscreenrecordah — preview',
-    ]);
     const results = sources
-      .filter((source) => !ownNames.has(source.name.toLowerCase()))
+      .filter((source) => !source.name.toLowerCase().includes('supahscreenrecordah'))
       .map((source) => {
         const isWindow = source.id.startsWith('window:');
         return {
@@ -163,14 +163,33 @@ export function registerDeviceHandlers(): void {
     if (process.platform === 'win32') {
       const winWindows = await getWindowsAllWindows();
       const existingNames = new Set(results.map((r) => r.name.toLowerCase()));
+      // Collect app suffixes from existing sources (e.g. " - Google Chrome") to
+      // avoid adding duplicate entries when the window title changed between queries.
+      const existingSuffixes = new Set<string>();
+      for (const r of results) {
+        const suffix = extractAppSuffix(r.name);
+        if (suffix) {
+          existingSuffixes.add(suffix.toLowerCase());
+        }
+      }
       for (const win of winWindows) {
         const nameLower = win.name.toLowerCase();
         const processLower = win.processName.toLowerCase();
         if (ownNames.has(nameLower) || ownNames.has(processLower)) {
           continue;
         }
+        // Filter out system/background processes
+        if (WINDOWS_PROCESS_BLOCKLIST.has(processLower)) {
+          continue;
+        }
         // Skip if desktopCapturer already found a source with the same name
         if (existingNames.has(nameLower)) {
+          continue;
+        }
+        // Skip if a source with the same app suffix already exists (e.g. both
+        // "Tab A - Google Chrome" and "Tab B - Google Chrome" refer to Chrome)
+        const suffix = extractAppSuffix(win.name);
+        if (suffix && existingSuffixes.has(suffix.toLowerCase())) {
           continue;
         }
         results.push({
@@ -179,6 +198,9 @@ export function registerDeviceHandlers(): void {
           isBrowser: true,
         });
         existingNames.add(nameLower);
+        if (suffix) {
+          existingSuffixes.add(suffix.toLowerCase());
+        }
       }
     }
 

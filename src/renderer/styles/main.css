@@ -54,6 +54,43 @@ body {
 }
 
 /* ── Aspect ratio layout overrides ── */
+
+/* ── Shorts mode (9:16) — clean output, no overlays ── */
+
+.preview-container.shorts-mode {
+  padding: 0;
+  background: #000;
+}
+
+/* Shorts preview canvas — full-size compositor, hidden by default */
+.shorts-preview-canvas {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+}
+
+.preview-container.shorts-mode .shorts-preview-canvas {
+  display: block;
+}
+
+/* Hide all overlays in shorts mode */
+.preview-container.shorts-mode .camera-name,
+.preview-container.shorts-mode .camera-socials,
+.preview-container.shorts-mode .action-feed-canvas,
+.preview-container.shorts-mode .waveform-canvas,
+.preview-container.shorts-mode .cta-popup,
+.preview-container.shorts-mode .bg-canvas {
+  display: none !important;
+}
+
+/* Video elements are hidden in shorts mode — canvas replaces them */
+
+/* ── Other aspect ratio overrides ── */
+
 .preview-container.ar-vertical .screen-video,
 .preview-container.ar-portrait .screen-video {
   top: auto;
@@ -73,6 +110,11 @@ body {
   height: 100%;
   z-index: 0;
   pointer-events: none;
+}
+
+/* ── Screen wrapper — invisible in normal mode, clips overflow in shorts mode ── */
+.screen-wrapper {
+  display: contents;
 }
 
 /* ── Screen video — absolutely positioned, horizontally draggable ── */

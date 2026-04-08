@@ -1,7 +1,7 @@
 // Camera name overlay — magnify wave animation + positioning
 
 import { cameraName, cameraContainer, previewContainer } from '../dom';
-import { overlayName, currentLayout } from '../state';
+import { overlayName, currentLayout, activeAspectRatio } from '../state';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -89,23 +89,35 @@ export function positionCameraName(positionSocials?: () => void): void {
     cameraName.classList.remove('active');
     return;
   }
-  // Camera is 22% wide, vertically centred at 70% height, anchored at 24px from one side.
-  const containerH = previewContainer.clientHeight;
-  const camH = containerH * 0.7;
-  const camTop = (containerH - camH) / 2;
-  // Place the name above the camera
-  const nameTop = camTop - 20;
-  const camWidthPct = 22;
-  if (currentLayout === 'camera-left') {
+
+  const isVertical = activeAspectRatio === '9:16' || activeAspectRatio === '4:5';
+
+  if (isVertical) {
+    // Camera is full-width on top — position name just above the camera's top edge
+    const camTop = cameraContainer.offsetTop;
+    cameraName.style.left = '50%';
     cameraName.style.right = '';
-    cameraName.style.left = `calc(24px + ${camWidthPct / 2}%)`;
     cameraName.style.transform = 'translateX(-50%) translateY(-50%)';
+    cameraName.style.top = `${Math.max(0, camTop - 4)}px`;
   } else {
-    cameraName.style.left = '';
-    cameraName.style.right = `calc(24px + ${camWidthPct / 2}%)`;
-    cameraName.style.transform = 'translateX(50%) translateY(-50%)';
+    // Landscape: camera is 22% wide, vertically centred at 70% height
+    const containerH = previewContainer.clientHeight;
+    const camH = containerH * 0.7;
+    const camTop = (containerH - camH) / 2;
+    const nameTop = camTop - 20;
+    const camWidthPct = 22;
+    if (currentLayout === 'camera-left') {
+      cameraName.style.right = '';
+      cameraName.style.left = `calc(24px + ${camWidthPct / 2}%)`;
+      cameraName.style.transform = 'translateX(-50%) translateY(-50%)';
+    } else {
+      cameraName.style.left = '';
+      cameraName.style.right = `calc(24px + ${camWidthPct / 2}%)`;
+      cameraName.style.transform = 'translateX(50%) translateY(-50%)';
+    }
+    cameraName.style.top = `${Math.round(nameTop)}px`;
   }
-  cameraName.style.top = `${Math.round(nameTop)}px`;
+
   cameraName.style.textAlign = 'center';
   cameraName.classList.add('active');
   if (positionSocials) {
