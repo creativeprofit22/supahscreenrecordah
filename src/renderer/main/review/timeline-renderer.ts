@@ -141,6 +141,17 @@ export function renderTimeline(
     }
   }
 
+  // 3b. Hover highlight on segment body
+  if (hoverSegmentId && !hoverEdge) {
+    const hovSeg = segments.find(s => s.id === hoverSegmentId);
+    if (hovSeg && hovSeg.type !== 'speech') {
+      const hx = timeToX(hovSeg.start, duration, width);
+      const hw = timeToX(hovSeg.end, duration, width) - hx;
+      ctx.fillStyle = 'rgba(205, 214, 244, 0.12)';
+      ctx.fillRect(hx, 0, hw, height);
+    }
+  }
+
   // 4. Trim handles at segment edges
   for (const seg of segments) {
     if (seg.type === 'speech') continue;

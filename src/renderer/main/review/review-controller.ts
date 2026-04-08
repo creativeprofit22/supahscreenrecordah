@@ -7,6 +7,10 @@ import {
   reviewActionsBar, reviewTimeline, timelineCanvas, timelineCtx,
 } from '../dom';
 import { renderTimeline } from './timeline-renderer';
+import {
+  initTimelineInteraction, destroyTimelineInteraction,
+  type HitState,
+} from './timeline-interaction';
 import type { ReviewSegment, ReviewState } from '../../../shared/review-types';
 
 // ---------------------------------------------------------------------------
@@ -16,6 +20,7 @@ import type { ReviewSegment, ReviewState } from '../../../shared/review-types';
 let state: ReviewState | null = null;
 let rafId: number | null = null;
 let destroyed = false;
+let hoverState: HitState = { hoverSegmentId: null, hoverEdge: null, hoverPlayhead: false };
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -50,6 +55,17 @@ export async function initReview(): Promise<void> {
     // Size the timeline canvas to its container
     sizeCanvas();
 
+    // Wire mouse interaction
+    initTimelineInteraction({
+      canvas: timelineCanvas,
+      getSegments: () => state?.segments ?? [],
+      getDuration: () => state?.duration ?? 0,
+      getPlayhead: () => playbackVideo.currentTime,
+      onSeek: (time: number) => { playbackVideo.currentTime = time; },
+      onToggle: toggleSegment,
+      onHitUpdate: (hit: HitState) => { hoverState = hit; },
+    });
+
     // Show review UI
     reviewActionsBar.classList.remove('hidden');
     reviewTimeline.classList.remove('hidden');
@@ -72,9 +88,18 @@ export function getReviewSegments(): ReviewSegment[] {
   return state?.segments ?? [];
 }
 
+/** Toggle a segment's enabled state by id. */
+function toggleSegment(segmentId: string): void {
+  if (!state) return;
+  const seg = state.segments.find(s => s.id === segmentId);
+  if (seg) seg.enabled = !seg.enabled;
+}
+
 /** Clean up on exit. */
 export function destroyReview(): void {
   destroyed = true;
+
+  destroyTimelineInteraction();
 
   if (rafId !== null) {
     cancelAnimationFrame(rafId);
@@ -82,6 +107,7 @@ export function destroyReview(): void {
   }
 
   state = null;
+  hoverState = { hoverSegmentId: null, hoverEdge: null, hoverPlayhead: false };
 
   reviewActionsBar.classList.add('hidden');
   reviewTimeline.classList.add('hidden');
@@ -119,8 +145,8 @@ function startRenderLoop(): void {
         segments: state.segments,
         playhead: state.playheadPosition,
         duration: state.duration,
-        hoverSegmentId: null,
-        hoverEdge: null,
+        hoverSegmentId: hoverState.hoverSegmentId,
+        hoverEdge: hoverState.hoverEdge,
       });
     }
 
