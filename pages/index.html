@@ -56,7 +56,15 @@
     <!-- Playback overlay — shown after recording stops -->
     <div id="playback-container" class="playback-container hidden">
       <video id="playback-video" class="playback-video" controls playsinline></video>
+      <div id="review-actions-bar" class="review-actions-bar">
+        <button id="auto-trim-btn" class="playback-btn playback-btn--auto-trim">Auto-trim <span class="dropdown-arrow">▾</span></button>
+        <button id="undo-all-btn" class="playback-btn playback-btn--undo-all">Undo All</button>
+      </div>
+      <div id="review-timeline" class="review-timeline">
+        <canvas id="timeline-canvas" class="timeline-canvas"></canvas>
+      </div>
       <div class="playback-actions">
+        <button id="playback-skip-btn" class="playback-btn playback-btn--skip">Skip</button>
         <button id="playback-exit-btn" class="playback-btn playback-btn--exit">Exit</button>
         <button id="playback-export-btn" class="playback-btn playback-btn--export">Export</button>
       </div>
