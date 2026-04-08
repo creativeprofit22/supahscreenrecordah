@@ -3,8 +3,7 @@
 macOS/Windows desktop screen + camera recorder built with Electron & TypeScript. Floating toolbar UI, overlays, and FFmpeg-based export. Currently adding a "Shorts Mode" for 9:16 short-form content.
 
 ## Current Focus
-Section: Shorts Mode (9:16 vertical recording)
-Files: src/renderer/main/preview.ts, src/renderer/main/recording.ts, src/renderer/styles/main.css, src/main/ipc/overlay.ts, src/main/index.ts
+**Phase:** Post-Recording Review Screen — Chunk 0/12
 
 ## Tech Stack
 - **Language:** TypeScript (strict mode)
