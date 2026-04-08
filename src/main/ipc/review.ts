@@ -1,10 +1,17 @@
-import { ipcMain } from 'electron';
+import { ipcMain, app } from 'electron';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 import { Channels } from '../../shared/channels';
 import { isValidSender } from './helpers';
+import { isValidSavePath } from '../../shared/paths';
 import { getPlaybackTempFile } from './playback';
 import { extractWaveform } from '../services/waveform';
 import { transcribeWithWhisper } from '../services/whisper-transcribe';
 import { detectSilences, detectFillers } from '../services/assemblyai/silence';
+import { cutSilenceRegions } from '../services/ffmpeg/silence-cut';
+import { postProcessRecording } from '../services/ffmpeg';
+import { getConfig } from '../store';
 import type { ReviewSegment, ReviewAnalysisResult } from '../../shared/review-types';
 import type { SilenceRegion } from '../services/assemblyai/types';
 
@@ -76,7 +83,65 @@ function buildSegments(regions: SilenceRegion[], duration: number): ReviewSegmen
   return segments;
 }
 
+// Allowed directories for saving recordings
+const ALLOWED_SAVE_DIRS = [
+  app.getPath('home'),
+  app.getPath('desktop'),
+  app.getPath('documents'),
+];
+
 export function registerReviewHandlers(): void {
+  // --- Export with pre-computed keep-segments from the review screen ---------
+  ipcMain.handle(
+    Channels.REVIEW_EXPORT,
+    async (event, { filePath, buffer, keepSegments }: {
+      filePath: string;
+      buffer: ArrayBuffer;
+      keepSegments: Array<{ start: number; end: number }>;
+    }) => {
+      if (!isValidSender(event)) {
+        throw new Error('Unauthorized IPC sender');
+      }
+      if (!isValidSavePath(filePath, ALLOWED_SAVE_DIRS)) {
+        throw new Error(`Invalid save path: ${filePath}`);
+      }
+
+      const tmpPath = path.join(os.tmpdir(), `supahscreenrecordah-review-export-${Date.now()}.mp4`);
+
+      try {
+        // Write buffer to temp file
+        await fs.promises.writeFile(tmpPath, Buffer.from(buffer));
+
+        // Cut segments if there are actual cuts (more than 1 keep-segment)
+        if (keepSegments.length > 1) {
+          const cutSuccess = await cutSilenceRegions(tmpPath, keepSegments);
+          if (!cutSuccess) {
+            console.warn('[review-export] Silence cut failed — exporting without cuts.');
+          }
+        }
+
+        // Post-process (audio enhancement)
+        const config = getConfig();
+        await postProcessRecording(tmpPath, config.overlay?.progressBar);
+
+        // Move result to user's chosen path
+        await fs.promises.copyFile(tmpPath, filePath);
+        console.log('[review-export] Export complete:', filePath);
+      } catch (err) {
+        console.error('[review-export] Failed:', err);
+        throw err;
+      } finally {
+        // Clean up temp file
+        try {
+          await fs.promises.unlink(tmpPath);
+        } catch {
+          // ignore
+        }
+      }
+    },
+  );
+
+  // --- Analyze recording for review timeline --------------------------------
   ipcMain.handle(Channels.REVIEW_ANALYZE, async (event) => {
     if (!isValidSender(event)) {
       throw new Error('Unauthorized IPC sender');

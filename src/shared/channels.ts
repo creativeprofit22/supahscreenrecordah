@@ -85,4 +85,5 @@ export const Channels = {
   AUTOSAVE_CLEANUP: 'autosave:cleanup',
   // Review screen analysis
   REVIEW_ANALYZE: 'review:analyze',
+  REVIEW_EXPORT: 'review:export',
 } as const;

@@ -152,6 +152,7 @@ export interface MainAPI {
   sendAutosaveChunk: (buffer: ArrayBuffer, extension: string) => Promise<void>;
   autosaveCleanup: () => Promise<void>;
   analyzeForReview: () => Promise<ReviewAnalysisResult>;
+  exportWithSegments: (filePath: string, buffer: ArrayBuffer, keepSegments: Array<{ start: number; end: number }>) => Promise<void>;
 }
 
 // ToolbarAPI

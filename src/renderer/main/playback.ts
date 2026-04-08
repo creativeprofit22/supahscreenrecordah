@@ -13,7 +13,7 @@ import { startZoomLoop } from './zoom';
 import { startWaveformCapture, getSavedMicDeviceIdForRestart, clearSavedMicDeviceIdForRestart } from './overlays/waveform';
 import { getPauseCutPoints } from './recording';
 import {
-  initReview, destroyReview,
+  initReview, destroyReview, getReviewSegments,
   bulkRemoveSilences, bulkRemoveFillers, bulkRemoveSilencesAndFillers, undoAll,
 } from './review/review-controller';
 import type { PauseTimestamp } from '../../shared/types';
@@ -146,12 +146,40 @@ export function initPlaybackHandlers(): void {
       try {
         processingSub.textContent = 'Writing recording data...';
         const arrayBuffer = await pendingRecordingBlob.arrayBuffer();
-        processingSub.textContent = 'Enhancing audio and finalizing...';
-        await window.mainAPI.saveRecording(
-          filePath,
-          arrayBuffer,
-          pendingPauseTimestamps.length > 0 ? pendingPauseTimestamps : undefined,
-        );
+
+        // Check if there are reviewed segments with cuts
+        const reviewSegments = getReviewSegments();
+        const hasDisabledSegments = reviewSegments.length > 0 && reviewSegments.some(s => !s.enabled);
+
+        if (hasDisabledSegments) {
+          // Build keep-segments from enabled review segments, then merge adjacent ones
+          const keepRaw = reviewSegments
+            .filter(s => s.enabled)
+            .map(s => ({ start: s.start, end: s.end }));
+
+          // Merge adjacent/overlapping segments
+          const keepSegments: Array<{ start: number; end: number }> = [];
+          for (const seg of keepRaw) {
+            const last = keepSegments[keepSegments.length - 1];
+            if (last && Math.abs(seg.start - last.end) < 0.001) {
+              last.end = seg.end;
+            } else {
+              keepSegments.push({ ...seg });
+            }
+          }
+
+          processingSub.textContent = 'Cutting segments and enhancing audio...';
+          await window.mainAPI.exportWithSegments(filePath, arrayBuffer, keepSegments);
+        } else {
+          // No review cuts — use standard export pipeline
+          processingSub.textContent = 'Enhancing audio and finalizing...';
+          await window.mainAPI.saveRecording(
+            filePath,
+            arrayBuffer,
+            pendingPauseTimestamps.length > 0 ? pendingPauseTimestamps : undefined,
+          );
+        }
+
         console.log('[rec] Export complete:', filePath);
       } catch (err) {
         console.error('Failed to export recording:', err);

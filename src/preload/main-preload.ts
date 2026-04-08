@@ -139,6 +139,9 @@ const mainAPI: MainAPI = {
   autosaveCleanup: () => ipcRenderer.invoke(Channels.AUTOSAVE_CLEANUP),
 
   analyzeForReview: () => ipcRenderer.invoke(Channels.REVIEW_ANALYZE),
+
+  exportWithSegments: (filePath, buffer, keepSegments) =>
+    ipcRenderer.invoke(Channels.REVIEW_EXPORT, { filePath, buffer, keepSegments }),
 };
 
 contextBridge.exposeInMainWorld('mainAPI', mainAPI);
