@@ -82,7 +82,31 @@ function buildSegments(regions: SilenceRegion[], duration: number): ReviewSegmen
     });
   }
 
-  return segments;
+  // Close short speech gaps (< 0.8s) between adjacent non-speech segments.
+  // These are typically whisper timestamp imprecision, not real speech.
+  // Extend the previous non-speech to meet the next one; keep them as separate segments.
+  const closed: ReviewSegment[] = [];
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    const prev = closed[closed.length - 1];
+    const next = segments[i + 1];
+    if (
+      seg.type === 'speech' &&
+      (seg.end - seg.start) < 0.8 &&
+      prev && prev.type !== 'speech' &&
+      next && next.type !== 'speech'
+    ) {
+      // Bridge the gap: extend prev to the midpoint, start next from midpoint
+      const mid = (seg.start + seg.end) / 2;
+      prev.end = mid;
+      next.start = mid;
+      // Skip this short speech segment
+    } else {
+      closed.push(seg);
+    }
+  }
+
+  return closed;
 }
 
 // Allowed directories for saving recordings
@@ -107,6 +131,8 @@ export function registerReviewHandlers(): void {
       if (!isValidSavePath(filePath, ALLOWED_SAVE_DIRS)) {
         throw new Error(`Invalid save path: ${filePath}`);
       }
+
+      console.log('[review-export] Keep segments from renderer:', keepSegments.map(s => `${s.start.toFixed(2)}-${s.end.toFixed(2)}`).join(', '));
 
       // Use the remuxed playback file — same one whisper analyzed, so timestamps match
       const sourcePath = getPlaybackTempFile();

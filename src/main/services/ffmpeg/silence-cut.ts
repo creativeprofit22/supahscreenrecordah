@@ -74,6 +74,7 @@ export async function cutSilenceRegions(
   }
 
   const filterComplex = buildFilterComplex(keepSegments);
+  console.log(`[silence-cut] Keep segments:`, keepSegments.map(s => `${s.start.toFixed(2)}-${s.end.toFixed(2)}`).join(', '));
   const tmpPath = path.join(os.tmpdir(), `supahscreenrecordah-silencecut-${Date.now()}.mp4`);
 
   console.log(`[silence-cut] Cutting ${keepSegments.length} segments from video…`);

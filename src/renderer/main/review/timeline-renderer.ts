@@ -153,25 +153,26 @@ export function renderTimeline(
     }
   }
 
-  // 4. Trim handles at segment edges
+  // 4. Trim handles at segment edges (only for enabled segments — disabled ones are solid blocks)
   for (const seg of segments) {
     if (seg.type === 'speech') continue;
+    if (!seg.enabled) continue; // no handles on disabled segments — reduces visual noise
 
     const isHovered = seg.id === hoverSegmentId;
 
     // Start edge
     const sx = timeToX(seg.start, duration, width);
     const startHover = isHovered && hoverEdge === 'start';
-    const startW = startHover ? 6 : 3;
-    const startAlpha = startHover ? 1.0 : 0.5;
-    ctx.fillStyle = `rgba(205, 214, 244, ${startAlpha})`; // --text approx #cdd6f4
+    const startW = startHover ? 6 : 2;
+    const startAlpha = startHover ? 1.0 : 0.35;
+    ctx.fillStyle = `rgba(205, 214, 244, ${startAlpha})`;
     ctx.fillRect(sx - Math.floor(startW / 2), 0, startW, height);
 
     // End edge
     const ex = timeToX(seg.end, duration, width);
     const endHover = isHovered && hoverEdge === 'end';
-    const endW = endHover ? 6 : 3;
-    const endAlpha = endHover ? 1.0 : 0.5;
+    const endW = endHover ? 6 : 2;
+    const endAlpha = endHover ? 1.0 : 0.35;
     ctx.fillStyle = `rgba(205, 214, 244, ${endAlpha})`;
     ctx.fillRect(ex - Math.floor(endW / 2), 0, endW, height);
   }

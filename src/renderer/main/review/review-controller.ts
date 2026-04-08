@@ -194,9 +194,19 @@ export function undoAll(): void {
 function onTimeUpdate(): void {
   if (!state) return;
   const t = playbackVideo.currentTime;
-  for (const seg of state.segments) {
-    if (!seg.enabled && t >= seg.start && t < seg.end) {
-      playbackVideo.currentTime = seg.end;
+  const segs = state.segments;
+  for (let i = 0; i < segs.length; i++) {
+    if (!segs[i].enabled && t >= segs[i].start && t < segs[i].end) {
+      // Find the end of all consecutive disabled segments — skip in one jump
+      let skipTo = segs[i].end;
+      for (let j = i + 1; j < segs.length; j++) {
+        if (!segs[j].enabled) {
+          skipTo = segs[j].end;
+        } else {
+          break;
+        }
+      }
+      playbackVideo.currentTime = skipTo;
       return;
     }
   }
@@ -238,7 +248,7 @@ export function destroyReview(): void {
 let lastCanvasW = 0;
 let lastCanvasH = 0;
 
-const TIMELINE_HEIGHT = 80;
+const TIMELINE_HEIGHT = 100;
 
 function sizeCanvas(): void {
   const dpr = window.devicePixelRatio || 1;
