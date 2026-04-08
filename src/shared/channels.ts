@@ -58,6 +58,8 @@ export const Channels = {
   ONBOARDING_COMPLETE: 'onboarding:complete',
   // Blur regions
   BLUR_MODE_TOGGLE: 'blur:mode-toggle',
+  // Webcam background blur
+  WEBCAM_BLUR_TOGGLE: 'webcam-blur:toggle',
   // Aspect ratio
   ASPECT_RATIO_UPDATE: 'aspect-ratio:update',
   // Countdown

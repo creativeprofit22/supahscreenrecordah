@@ -14,39 +14,49 @@ let maskCanvas: OffscreenCanvas | null = null;
 let maskCtx: OffscreenCanvasRenderingContext2D | null = null;
 let lastMask: Float32Array | null = null;
 let frameCounter = 0;
-let initializing = false;
+let initPromise: Promise<void> | null = null;
+
+/** Whether the segmenter loaded successfully and is ready to process frames. */
+export function isSegmenterReady(): boolean {
+  return segmenter !== null;
+}
 
 // ---------------------------------------------------------------------------
 // Initialise MediaPipe ImageSegmenter
 // ---------------------------------------------------------------------------
 
-export async function initWebcamBlur(): Promise<void> {
-  if (segmenter || initializing) return;
-  initializing = true;
+export function initWebcamBlur(): Promise<void> {
+  if (segmenter) return Promise.resolve();
+  // If already initializing, return the shared promise so all callers wait
+  if (initPromise) return initPromise;
 
-  try {
-    const vision = await FilesetResolver.forVisionTasks(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.33/wasm',
-    );
+  initPromise = (async () => {
+    try {
+      const vision = await FilesetResolver.forVisionTasks(
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.33/wasm',
+      );
 
-    segmenter = await ImageSegmenter.createFromOptions(vision, {
-      baseOptions: {
-        modelAssetPath:
-          'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter_landscape/float16/latest/selfie_segmenter_landscape.tflite',
-        delegate: 'GPU',
-      },
-      runningMode: 'VIDEO',
-      outputCategoryMask: false,
-      outputConfidenceMasks: true,
-    });
+      segmenter = await ImageSegmenter.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath:
+            'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter_landscape/float16/latest/selfie_segmenter_landscape.tflite',
+          delegate: 'GPU',
+        },
+        runningMode: 'VIDEO',
+        outputCategoryMask: false,
+        outputConfidenceMasks: true,
+      });
 
-    console.log('[webcam-blur] MediaPipe ImageSegmenter initialised');
-  } catch (err) {
-    console.error('[webcam-blur] Failed to init segmenter:', err);
-    segmenter = null;
-  } finally {
-    initializing = false;
-  }
+      console.log('[webcam-blur] MediaPipe ImageSegmenter initialised');
+    } catch (err) {
+      console.error('[webcam-blur] Failed to init segmenter:', err);
+      segmenter = null;
+    } finally {
+      initPromise = null;
+    }
+  })();
+
+  return initPromise;
 }
 
 // ---------------------------------------------------------------------------

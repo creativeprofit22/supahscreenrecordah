@@ -23,7 +23,7 @@ import { setZoomConfig, onMouseDown, onMouseUp, sizeBgCanvas, isZoomLoopRunning,
 import { toggleBlurMode, setBlurRegions, refreshBlurRegionPositions } from './overlays/blur-regions';
 import { showPreviewSpotlight, hidePreviewSpotlight, updatePreviewSpotlight } from './overlays/spotlight';
 import { setCursorEffectConfig, addClickRipple } from './overlays/cursor-effects';
-import { initWebcamBlur, startPreviewBlur, stopPreviewBlur, disposeWebcamBlur } from './overlays/webcam-blur';
+import { initWebcamBlur, isSegmenterReady, startPreviewBlur, stopPreviewBlur, disposeWebcamBlur } from './overlays/webcam-blur';
 import { playClickSound } from './audio/click-sounds';
 import { loadWatermark, clearWatermark } from './overlays/watermark';
 import { previewContainer, cameraContainer, cameraVideo, bgCtx, bgCanvas } from './dom';
@@ -43,7 +43,7 @@ import {
   setActiveCameraEnhancement,
   setAmbientParticlesEnabled, ambientParticlesEnabled,
   setCountdownEnabled,
-  activeWebcamBlur,
+  activeWebcamBlur, activeWebcamBlurIntensity,
   setActiveWebcamBlur, setActiveWebcamBlurIntensity,
   activeSpotlight, setActiveSpotlight,
   setActiveCursorEffect,
@@ -176,6 +176,32 @@ window.mainAPI.onBlurModeToggle(() => {
 });
 
 // ---------------------------------------------------------------------------
+// Wire IPC events — webcam background blur toggle from toolbar
+// ---------------------------------------------------------------------------
+
+window.mainAPI.onWebcamBlurToggle(() => {
+  if (activeWebcamBlur) {
+    setActiveWebcamBlur(false);
+    disposeWebcamBlur();
+  } else {
+    setActiveWebcamBlur(true);
+    void initWebcamBlur().then(() => {
+      // In shorts mode the canvas loop in preview.ts reads activeWebcamBlur
+      // and calls processBlurFrame directly — no overlay needed.
+      if (isShortsMode()) return;
+      // Only start the overlay preview blur if the segmenter actually loaded.
+      // If it failed (network, GPU), don't hide the camera for a blank canvas.
+      if (!isSegmenterReady()) {
+        console.warn('[webcam-blur] Segmenter failed to init — disabling');
+        setActiveWebcamBlur(false);
+        return;
+      }
+      startPreviewBlur(cameraVideo, cameraContainer, activeWebcamBlurIntensity);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Wire IPC events — aspect ratio update from toolbar
 // ---------------------------------------------------------------------------
 
@@ -297,9 +323,11 @@ function applyOverlay(settings: OverlayConfig): void {
   setActiveWebcamBlurIntensity(webcamBlurIntensity);
 
   if (wantWebcamBlur && !activeWebcamBlur) {
-    // Turning on — init segmenter and start preview blur
+    // Turning on — init segmenter; shorts mode uses its own canvas loop
     setActiveWebcamBlur(true);
     void initWebcamBlur().then(() => {
+      if (isShortsMode()) return;
+      if (!isSegmenterReady()) { setActiveWebcamBlur(false); return; }
       startPreviewBlur(cameraVideo, cameraContainer, webcamBlurIntensity);
     });
   } else if (!wantWebcamBlur && activeWebcamBlur) {
@@ -307,9 +335,11 @@ function applyOverlay(settings: OverlayConfig): void {
     setActiveWebcamBlur(false);
     disposeWebcamBlur();
   } else if (wantWebcamBlur && activeWebcamBlur) {
-    // Already on — update intensity for preview
-    stopPreviewBlur();
-    startPreviewBlur(cameraVideo, cameraContainer, webcamBlurIntensity);
+    // Already on — update intensity for preview (skip in shorts mode)
+    if (!isShortsMode()) {
+      stopPreviewBlur();
+      startPreviewBlur(cameraVideo, cameraContainer, webcamBlurIntensity);
+    }
   }
 
   // Click sounds

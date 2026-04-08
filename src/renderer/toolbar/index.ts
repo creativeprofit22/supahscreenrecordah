@@ -26,12 +26,14 @@ const recTimer = document.getElementById('rec-timer') as HTMLElement;
 
 const aspectRatioSelect = document.getElementById('aspect-ratio-select') as HTMLSelectElement;
 const blurBtn = document.getElementById('blur-btn') as HTMLButtonElement;
+const webcamBlurBtn = document.getElementById('webcam-blur-btn') as HTMLButtonElement;
 
 const toolbar = document.querySelector('.toolbar') as HTMLElement;
 
 let recording = false;
 let paused = false;
 let blurModeActive = false;
+let webcamBlurActive = false;
 
 let screenSources: ScreenSource[] = [];
 let currentLayout: BgStyle = 'camera-right';
@@ -179,6 +181,12 @@ async function populateDevices(): Promise<void> {
   if (config.overlay?.aspectRatio) {
     aspectRatioSelect.value = config.overlay.aspectRatio;
     window.toolbarAPI.sendAspectRatioUpdate(config.overlay.aspectRatio);
+  }
+
+  // Restore saved webcam blur state
+  if (config.overlay?.webcamBlur) {
+    webcamBlurActive = true;
+    webcamBlurBtn.classList.add('active');
   }
 
   requestAnimationFrame(() => {
@@ -404,6 +412,20 @@ blurBtn.addEventListener('click', () => {
     blurBtn.classList.remove('active');
   }
   window.toolbarAPI.toggleBlurMode();
+});
+
+// ---------------------------------------------------------------------------
+// Webcam background blur toggle
+// ---------------------------------------------------------------------------
+
+webcamBlurBtn.addEventListener('click', () => {
+  webcamBlurActive = !webcamBlurActive;
+  if (webcamBlurActive) {
+    webcamBlurBtn.classList.add('active');
+  } else {
+    webcamBlurBtn.classList.remove('active');
+  }
+  window.toolbarAPI.toggleWebcamBlur();
 });
 
 // ---------------------------------------------------------------------------

@@ -145,6 +145,7 @@ export interface MainAPI {
   onCtaTest: (callback: () => void) => () => void;
   onActionEvent: (callback: (event: ActionEvent) => void) => () => void;
   onBlurModeToggle: (callback: () => void) => () => void;
+  onWebcamBlurToggle: (callback: () => void) => () => void;
   onAspectRatioUpdate: (callback: (ratio: AspectRatio) => void) => () => void;
   sendAutosaveChunk: (buffer: ArrayBuffer, extension: string) => Promise<void>;
   autosaveCleanup: () => Promise<void>;
@@ -170,6 +171,7 @@ export interface ToolbarAPI {
   openUrl: (url: string) => Promise<void>;
   quitApp: () => void;
   toggleBlurMode: () => void;
+  toggleWebcamBlur: () => void;
   setExportPlatforms: (platforms: ExportPlatform[]) => Promise<ExportPlatform[]>;
   onChaptersReady: (callback: (chapters: Array<{ start: number; end: number; headline: string; summary: string; gist: string }>) => void) => () => void;
 }

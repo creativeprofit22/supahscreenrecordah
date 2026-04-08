@@ -119,6 +119,13 @@ const mainAPI: MainAPI = {
     return () => { ipcRenderer.removeListener(Channels.BLUR_MODE_TOGGLE, handler); };
   },
 
+  onWebcamBlurToggle: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.removeAllListeners(Channels.WEBCAM_BLUR_TOGGLE);
+    ipcRenderer.on(Channels.WEBCAM_BLUR_TOGGLE, handler);
+    return () => { ipcRenderer.removeListener(Channels.WEBCAM_BLUR_TOGGLE, handler); };
+  },
+
   onAspectRatioUpdate: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, ratio: AspectRatio) => callback(ratio);
     ipcRenderer.removeAllListeners(Channels.ASPECT_RATIO_UPDATE);

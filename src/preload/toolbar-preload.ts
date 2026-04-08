@@ -51,6 +51,10 @@ const toolbarAPI: ToolbarAPI = {
     ipcRenderer.send(Channels.BLUR_MODE_TOGGLE);
   },
 
+  toggleWebcamBlur: () => {
+    ipcRenderer.send(Channels.WEBCAM_BLUR_TOGGLE);
+  },
+
   sendAspectRatioUpdate: (ratio) => {
     ipcRenderer.send(Channels.ASPECT_RATIO_UPDATE, ratio);
   },

@@ -173,6 +173,13 @@ body {
   transform: scale(0.93);
 }
 
+/* Toggle active state (blur, webcam blur, etc.) */
+.toolbar-btn.active {
+  background: rgba(137, 180, 250, 0.3);
+  border-color: rgba(137, 180, 250, 0.4);
+  color: var(--blue);
+}
+
 /* Record button */
 .toolbar-btn.record {
   background: rgba(243, 139, 168, 0.55);

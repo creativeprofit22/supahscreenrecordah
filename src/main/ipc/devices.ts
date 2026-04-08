@@ -111,6 +111,9 @@ import {
   extractAppSuffix,
 } from '../services/device-filters';
 
+/** Names that identify this app's own windows — used to self-filter from source lists. */
+const ownNames = new Set(['supahscreenrecordah', 'electron']);
+
 export function registerDeviceHandlers(): void {
   ipcMain.handle(Channels.DEVICES_GET_SCREENS, async (event) => {
     if (!isValidSender(event)) {

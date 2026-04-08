@@ -97,6 +97,21 @@ export function registerOverlayHandlers(): void {
     }
   });
 
+  // ── Webcam blur toggle (toolbar → main window) ────────────────
+  ipcMain.on(Channels.WEBCAM_BLUR_TOGGLE, (event) => {
+    if (!isValidSender(event)) {
+      return;
+    }
+    // Persist to config so OVERLAY_UPDATE won't override the toggle
+    const config = getConfig();
+    const current = config.overlay?.webcamBlur ?? false;
+    void saveConfig({ overlay: { ...config.overlay, webcamBlur: !current } });
+    const main = getMainWindow();
+    if (main && !main.isDestroyed()) {
+      main.webContents.send(Channels.WEBCAM_BLUR_TOGGLE);
+    }
+  });
+
   // ── Aspect ratio update (toolbar → main window) ────────────────
   ipcMain.on(Channels.ASPECT_RATIO_UPDATE, (event, ratio: string) => {
     if (!isValidSender(event)) {
