@@ -86,6 +86,20 @@ export function detectFillers(words: TranscribedWord[]): SilenceRegion[] {
     // Flag short words with trailing ... as fillers — these are false starts
     if (word.text.endsWith('...') && cleaned.length <= 5) {
       regions.push({ start: word.start, end: word.end, reason: 'filler' });
+      continue;
+    }
+
+    // Stutter/repetition: consecutive identical words ("I'm... I'm", "to... to", "the the")
+    // Flag the first occurrence as a filler; the second stays as speech
+    if (i < words.length - 1) {
+      const nextCleaned = words[i + 1].text.toLowerCase().replace(/[^\w\s]/g, '').trim();
+      if (cleaned.length >= 1 && cleaned === nextCleaned) {
+        // Only flag if the gap between them is short (< 2s) — not separate uses
+        const gap = words[i + 1].start - word.end;
+        if (gap < 2) {
+          regions.push({ start: word.start, end: word.end, reason: 'filler' });
+        }
+      }
     }
   }
 

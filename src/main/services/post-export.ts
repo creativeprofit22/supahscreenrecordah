@@ -12,7 +12,7 @@ import { formatYouTubeChapters, adjustChaptersForCuts, type Chapter } from './as
 import { cutSilenceRegions } from './ffmpeg/silence-cut';
 import type { TranscriptResult } from './assemblyai/types';
 import type { SilenceRegion } from './assemblyai/types';
-import type { CaptionConfig, SilenceRemovalConfig, AspectRatio } from '../../shared/feature-types';
+import type { CaptionConfig, CaptionStylePreset, SilenceRemovalConfig, AspectRatio } from '../../shared/feature-types';
 import { ASPECT_RATIOS } from '../../shared/feature-types';
 import { Channels } from '../../shared/channels';
 import { getToolbarWindow } from '../windows/toolbar-window';
@@ -29,7 +29,7 @@ function sendCaptionProgress(stage: CaptionStage): void {
 }
 
 /** Build CaptionOptions from user CaptionConfig and aspect ratio. */
-function buildCaptionOptions(config: CaptionConfig, aspectRatio: AspectRatio): CaptionOptions {
+export function buildCaptionOptions(config: CaptionConfig, aspectRatio: AspectRatio): CaptionOptions {
   const { width, height } = ASPECT_RATIOS[aspectRatio];
 
   const options: CaptionOptions = {
@@ -70,10 +70,28 @@ function buildCaptionOptions(config: CaptionConfig, aspectRatio: AspectRatio): C
       break;
 
     case 'viral':
-      // Power word colorization enabled, center-positioned
+    case 'mrbeast':
+      // Power word colorization enabled, center-positioned, heavy outline
       options.style = {
         font: 'Arial',
-        size: Math.round(config.fontSize * 1.2),
+        size: Math.round(config.fontSize * (config.style === 'mrbeast' ? 1.4 : 1.2)),
+        color: '&HFFFFFF&',
+        outlineColor: '&H000000&',
+        bold: true,
+        outlineWidth: config.style === 'mrbeast' ? 7 : 5,
+        shadowDepth: config.style === 'mrbeast' ? 3 : 2,
+        alignment: 5, // center
+      };
+      options.position = 'center';
+      options.maxWordsPerGroup = config.style === 'mrbeast' ? 2 : 4;
+      // Always enable power words
+      options.powerWords = undefined; // uses built-in POWER_WORDS
+      break;
+
+    case 'youtube-shorts':
+      options.style = {
+        font: 'Arial',
+        size: Math.round(config.fontSize * 1.3),
         color: '&HFFFFFF&',
         outlineColor: '&H000000&',
         bold: true,
@@ -82,8 +100,22 @@ function buildCaptionOptions(config: CaptionConfig, aspectRatio: AspectRatio): C
         alignment: 5, // center
       };
       options.position = 'center';
-      // For viral style, always enable power words regardless of config toggle
-      options.powerWords = undefined; // uses built-in POWER_WORDS
+      options.maxWordsPerGroup = 3;
+      break;
+
+    case 'tiktok':
+      options.style = {
+        font: 'Arial',
+        size: Math.round(config.fontSize * 1.1),
+        color: '&HFFFFFF&',
+        outlineColor: '&H000000&',
+        bold: true,
+        outlineWidth: 3,
+        shadowDepth: 1,
+        alignment: 5, // center
+      };
+      options.position = 'center';
+      options.maxWordsPerGroup = 3;
       break;
   }
 
@@ -91,15 +123,16 @@ function buildCaptionOptions(config: CaptionConfig, aspectRatio: AspectRatio): C
 }
 
 /** Burn ASS subtitles into a video using FFmpeg. */
-function burnSubtitles(
+export function burnSubtitles(
   ffmpegPath: string,
   videoPath: string,
   assPath: string,
   outputPath: string,
 ): Promise<{ success: boolean; stderr: string }> {
-  // Escape backslashes and colons in the ASS path for the FFmpeg filter
+  // Escape path for FFmpeg's ass= filter: forward slashes avoid backslash issues,
+  // colons (drive letter) need \: so FFmpeg doesn't parse them as option separators
   const escapedAssPath = assPath
-    .replace(/\\/g, '\\\\\\\\')
+    .replace(/\\/g, '/')
     .replace(/:/g, '\\:');
 
   return new Promise((resolve) => {

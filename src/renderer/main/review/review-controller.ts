@@ -5,6 +5,7 @@ import {
   playbackVideo, playbackContainer,
   processingOverlay, processingSub,
   reviewActionsBar, reviewTimeline, timelineCanvas, timelineCtx,
+  captionOverlay, captionOverlayCtx,
 } from '../dom';
 import { renderTimeline } from './timeline-renderer';
 import {
@@ -13,6 +14,8 @@ import {
   type HitState,
 } from './timeline-interaction';
 import type { ReviewSegment, ReviewState } from '../../../shared/review-types';
+import { renderCaptionPreview, resetCaptionPreview } from './caption-preview';
+import { getActiveCaptionStyle } from '../playback';
 
 // ---------------------------------------------------------------------------
 // State
@@ -110,6 +113,11 @@ export async function initReview(): Promise<void> {
 /** Returns the current segment state (for export). */
 export function getReviewSegments(): ReviewSegment[] {
   return state?.segments ?? [];
+}
+
+/** Returns the transcribed words from analysis (for captions). */
+export function getReviewWords(): import('../../../shared/review-types').ReviewState['words'] {
+  return state?.words ?? [];
 }
 
 /** Toggle a segment's enabled state by id. */
@@ -226,6 +234,7 @@ export function destroyReview(): void {
 
   destroyPlaybackSkipping();
   destroyTimelineInteraction();
+  resetCaptionPreview();
 
   if (rafId !== null) {
     cancelAnimationFrame(rafId);
@@ -289,6 +298,17 @@ function startRenderLoop(): void {
         hoverEdge: hoverState.hoverEdge,
         snapTime: getSnapIndicatorTime(),
       });
+
+      // Render caption preview overlay
+      renderCaptionPreview(
+        captionOverlayCtx,
+        captionOverlay,
+        playbackVideo,
+        state.playheadPosition,
+        state.words,
+        state.segments,
+        getActiveCaptionStyle(),
+      );
     }
 
     rafId = requestAnimationFrame(tick);

@@ -55,10 +55,47 @@
 
     <!-- Playback overlay — shown after recording stops -->
     <div id="playback-container" class="playback-container hidden">
-      <video id="playback-video" class="playback-video" controls playsinline></video>
+      <div class="playback-video-wrapper">
+        <video id="playback-video" class="playback-video" controls playsinline></video>
+        <canvas id="caption-overlay" class="caption-overlay"></canvas>
+      </div>
       <div id="review-actions-bar" class="review-actions-bar">
         <button id="auto-trim-btn" class="playback-btn playback-btn--auto-trim">Auto-trim <span class="dropdown-arrow">▾</span></button>
         <button id="undo-all-btn" class="playback-btn playback-btn--undo-all">Undo All</button>
+        <div class="review-actions-spacer"></div>
+        <div class="caption-controls">
+          <button id="caption-toggle-btn" class="playback-btn playback-btn--caption">CC</button>
+          <label class="srt-toggle hidden" id="srt-toggle-label">
+            <input type="checkbox" id="srt-export-checkbox" />
+            <span>.srt</span>
+          </label>
+        </div>
+      </div>
+      <div id="caption-style-picker" class="caption-style-picker hidden">
+        <div class="style-card" data-style="bold">
+          <span class="style-sample style-sample--bold">The quick brown fox</span>
+          <span class="style-label">Bold</span>
+        </div>
+        <div class="style-card" data-style="minimal">
+          <span class="style-sample style-sample--clean">The quick brown fox</span>
+          <span class="style-label">Clean</span>
+        </div>
+        <div class="style-card" data-style="viral">
+          <span class="style-sample style-sample--viral">The quick brown fox</span>
+          <span class="style-label">Viral</span>
+        </div>
+        <div class="style-card" data-style="mrbeast">
+          <span class="style-sample style-sample--mrbeast">The quick brown fox</span>
+          <span class="style-label">MrBeast</span>
+        </div>
+        <div class="style-card" data-style="youtube-shorts">
+          <span class="style-sample style-sample--ytshorts">The quick brown fox</span>
+          <span class="style-label">YT Shorts</span>
+        </div>
+        <div class="style-card" data-style="tiktok">
+          <span class="style-sample style-sample--tiktok">The quick brown fox</span>
+          <span class="style-label">TikTok</span>
+        </div>
       </div>
       <div id="review-timeline" class="review-timeline">
         <div class="timeline-legend">

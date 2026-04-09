@@ -8,14 +8,17 @@ import {
   processingOverlay, processingSub,
   previewContainer,
   autoTrimBtn, undoAllBtn,
+  captionToggleBtn, captionStylePicker,
+  srtToggleLabel, srtExportCheckbox,
 } from './dom';
 import { startZoomLoop } from './zoom';
 import { startWaveformCapture, getSavedMicDeviceIdForRestart, clearSavedMicDeviceIdForRestart } from './overlays/waveform';
 import { getPauseCutPoints } from './recording';
 import {
-  initReview, destroyReview, getReviewSegments,
+  initReview, destroyReview, getReviewSegments, getReviewWords,
   bulkRemoveSilences, bulkRemoveFillers, bulkRemoveSilencesAndFillers, undoAll,
 } from './review/review-controller';
+import { getCaptionYFraction } from './review/caption-preview';
 import type { PauseTimestamp } from '../../shared/types';
 
 // ---------------------------------------------------------------------------
@@ -25,6 +28,12 @@ import type { PauseTimestamp } from '../../shared/types';
 let pendingRecordingBlob: Blob | null = null;
 let playbackBlobUrl: string | null = null;
 let pendingPauseTimestamps: PauseTimestamp[] = [];
+let selectedCaptionStyle: import('../../shared/feature-types').CaptionStylePreset | null = null;
+
+/** Get the active caption style for preview rendering, or null if disabled. */
+export function getActiveCaptionStyle(): import('../../shared/feature-types').CaptionStylePreset | null {
+  return selectedCaptionStyle;
+}
 
 // ---------------------------------------------------------------------------
 // Enter / exit playback mode
@@ -134,6 +143,12 @@ export function exitPlaybackMode(): void {
   void window.mainAPI.showToolbar();
 
   pendingRecordingBlob = null;
+  selectedCaptionStyle = null;
+  captionToggleBtn.classList.remove('active');
+  captionStylePicker.classList.add('hidden');
+  captionStylePicker.querySelectorAll('.style-card').forEach(c => c.classList.remove('active'));
+  srtToggleLabel.classList.add('hidden');
+  srtExportCheckbox.checked = false;
   playbackContainer.classList.add('hidden');
   previewContainer.style.display = '';
 
@@ -180,15 +195,16 @@ export function initPlaybackHandlers(): void {
         const reviewSegments = getReviewSegments();
         const hasDisabledSegments = reviewSegments.length > 0 && reviewSegments.some(s => !s.enabled);
 
-        if (hasDisabledSegments) {
+        if (hasDisabledSegments || selectedCaptionStyle) {
           // Build keep-segments from enabled review segments, then merge adjacent ones
           const keepRaw = reviewSegments
             .filter(s => s.enabled)
             .map(s => ({ start: s.start, end: s.end }));
 
-          // Merge adjacent/overlapping segments
+          // Merge adjacent/overlapping segments, drop zero-duration ones
           const keepSegments: Array<{ start: number; end: number }> = [];
           for (const seg of keepRaw) {
+            if (seg.end - seg.start < 0.01) continue; // skip zero-duration
             const last = keepSegments[keepSegments.length - 1];
             if (last && Math.abs(seg.start - last.end) < 0.05) {
               last.end = seg.end;
@@ -197,8 +213,27 @@ export function initPlaybackHandlers(): void {
             }
           }
 
-          processingSub.textContent = 'Cutting segments and enhancing audio...';
-          await window.mainAPI.exportWithSegments(filePath, arrayBuffer, keepSegments);
+          // If no segments were disabled but captions are on, use one big segment
+          if (keepSegments.length === 0) {
+            keepSegments.push({ start: 0, end: playbackVideo.duration || 0 });
+          }
+
+          // Build caption options if a style is selected
+          const captionOpts = selectedCaptionStyle ? {
+            style: selectedCaptionStyle,
+            words: getReviewWords(),
+            resolution: {
+              width: playbackVideo.videoWidth || 1920,
+              height: playbackVideo.videoHeight || 1080,
+            },
+            exportSrt: srtExportCheckbox.checked,
+            yFraction: getCaptionYFraction(),
+          } : undefined;
+
+          processingSub.textContent = selectedCaptionStyle
+            ? 'Cutting segments, burning captions...'
+            : 'Cutting segments and enhancing audio...';
+          await window.mainAPI.exportWithSegments(filePath, arrayBuffer, keepSegments, captionOpts);
         } else {
           // No review cuts — use standard export pipeline
           processingSub.textContent = 'Enhancing audio and finalizing...';
@@ -260,6 +295,41 @@ export function initPlaybackHandlers(): void {
   // --- Undo All button -------------------------------------------------------
   undoAllBtn.addEventListener('click', () => {
     undoAll();
+  });
+
+  // --- Caption toggle + style picker -----------------------------------------
+  captionToggleBtn.addEventListener('click', () => {
+    const isOpen = !captionStylePicker.classList.contains('hidden');
+    if (isOpen) {
+      // Close picker
+      captionStylePicker.classList.add('hidden');
+    } else {
+      // Open picker
+      captionStylePicker.classList.remove('hidden');
+    }
+  });
+
+  // Style card click — select/deselect
+  captionStylePicker.addEventListener('click', (e) => {
+    const card = (e.target as HTMLElement).closest('.style-card') as HTMLElement | null;
+    if (!card) return;
+
+    const style = card.dataset.style as import('../../shared/feature-types').CaptionStylePreset;
+
+    if (selectedCaptionStyle === style) {
+      // Deselect — remove captions
+      selectedCaptionStyle = null;
+      card.classList.remove('active');
+      captionToggleBtn.classList.remove('active');
+      srtToggleLabel.classList.add('hidden');
+    } else {
+      // Select new style
+      captionStylePicker.querySelectorAll('.style-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      selectedCaptionStyle = style;
+      captionToggleBtn.classList.add('active');
+      srtToggleLabel.classList.remove('hidden');
+    }
   });
 
   // --- Skip button — export original blob without review cuts ----------------

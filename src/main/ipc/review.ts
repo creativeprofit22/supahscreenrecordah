@@ -12,9 +12,14 @@ import { findWhisper, findWhisperModel, installWhisper, installWhisperModel } fr
 import { detectSilences, detectFillers } from '../services/assemblyai/silence';
 import { cutSilenceRegions } from '../services/ffmpeg/silence-cut';
 import { postProcessRecording } from '../services/ffmpeg';
+import { findFfmpeg } from '../services/dependencies';
+import { buildCaptionOptions, burnSubtitles } from '../services/post-export';
+import { generateASS, generateSRT } from '../services/assemblyai/captions';
+import { adjustWordsForCuts } from '../services/assemblyai/silence';
 import { getConfig } from '../store';
 import type { ReviewSegment, ReviewAnalysisResult } from '../../shared/review-types';
-import type { SilenceRegion } from '../services/assemblyai/types';
+import type { SilenceRegion, TranscribedWord } from '../services/assemblyai/types';
+import type { CaptionStylePreset } from '../../shared/feature-types';
 
 let idCounter = 0;
 
@@ -120,10 +125,17 @@ export function registerReviewHandlers(): void {
   // --- Export with pre-computed keep-segments from the review screen ---------
   ipcMain.handle(
     Channels.REVIEW_EXPORT,
-    async (event, { filePath, keepSegments }: {
+    async (event, { filePath, keepSegments, captionOptions }: {
       filePath: string;
       buffer: ArrayBuffer;
       keepSegments: Array<{ start: number; end: number }>;
+      captionOptions?: {
+        style: CaptionStylePreset;
+        words: TranscribedWord[];
+        resolution: { width: number; height: number };
+        exportSrt?: boolean;
+        yFraction?: number;
+      };
     }) => {
       if (!isValidSender(event)) {
         throw new Error('Unauthorized IPC sender');
@@ -147,10 +159,82 @@ export function registerReviewHandlers(): void {
         await fs.promises.copyFile(sourcePath, tmpPath);
 
         // Cut segments if there are actual cuts (more than 1 keep-segment)
+        let didCut = false;
         if (keepSegments.length > 1) {
           const cutSuccess = await cutSilenceRegions(tmpPath, keepSegments);
-          if (!cutSuccess) {
+          if (cutSuccess) {
+            didCut = true;
+          } else {
             console.warn('[review-export] Silence cut failed — exporting without cuts.');
+          }
+        }
+
+        // Burn captions if requested
+        let adjustedCaptionWords: TranscribedWord[] | null = null;
+        if (captionOptions && captionOptions.words.length > 0) {
+          // Adjust word timestamps for cuts
+          adjustedCaptionWords = captionOptions.words;
+          if (didCut) {
+            const cutRegions: SilenceRegion[] = [];
+            let pos = 0;
+            for (const seg of keepSegments) {
+              if (seg.start > pos) {
+                cutRegions.push({ start: pos, end: seg.start, reason: 'silence' });
+              }
+              pos = seg.end;
+            }
+            adjustedCaptionWords = adjustWordsForCuts(captionOptions.words, cutRegions);
+            console.log(`[review-export] Adjusted ${adjustedCaptionWords.length} words for trimmed captions (from ${captionOptions.words.length}).`);
+          }
+
+          const ffmpegPath = await findFfmpeg();
+          if (ffmpegPath) {
+            const { width, height } = captionOptions.resolution;
+            const isVertical = height > width;
+            const aspectRatio = isVertical ? '9:16' as const : '16:9' as const;
+
+            const yFrac = captionOptions.yFraction ?? 0.5;
+            // Map yFraction to ASS position: use alignment 5 (center) with marginV offset
+            // marginV in ASS moves the subtitle from center when alignment=5
+            // yFrac 0.5 → marginV 0, yFrac 0.3 → positive offset upward, yFrac 0.7 → negative (downward)
+            const centerOffset = Math.round((0.5 - yFrac) * height);
+
+            const captionConfig = {
+              enabled: true,
+              style: captionOptions.style,
+              position: 'center' as const,
+              fontSize: isVertical ? 72 : 48,
+              powerWords: captionOptions.style === 'viral' || captionOptions.style === 'mrbeast',
+            };
+
+            const captionOpts = buildCaptionOptions(captionConfig, aspectRatio);
+            captionOpts.resolution = { width, height };
+            // Apply user's dragged Y position
+            if (captionOpts.style) {
+              captionOpts.style.marginV = Math.max(0, centerOffset);
+              captionOpts.style.alignment = yFrac < 0.4 ? 8 : yFrac > 0.6 ? 2 : 5;
+            }
+
+            const assContent = generateASS(adjustedCaptionWords, captionOpts);
+            const assPath = path.join(os.tmpdir(), `supahscreenrecordah-review-captions-${Date.now()}.ass`);
+            await fs.promises.writeFile(assPath, assContent, 'utf-8');
+            console.log(`[review-export] Generated ASS: ${adjustedCaptionWords.length} words, style: ${captionOptions.style}`);
+
+            const captionTmp = path.join(os.tmpdir(), `supahscreenrecordah-review-captioned-${Date.now()}.mp4`);
+            const result = await burnSubtitles(ffmpegPath, tmpPath, assPath, captionTmp);
+
+            try { await fs.promises.unlink(assPath); } catch { /* ignore */ }
+
+            if (result.success) {
+              await fs.promises.copyFile(captionTmp, tmpPath);
+              await fs.promises.unlink(captionTmp);
+              console.log('[review-export] Captions burned successfully.');
+            } else {
+              console.warn('[review-export] Caption burn failed:', result.stderr?.slice(-300));
+              try { await fs.promises.unlink(captionTmp); } catch { /* ignore */ }
+            }
+          } else {
+            console.warn('[review-export] FFmpeg not found — skipping captions.');
           }
         }
 
@@ -161,6 +245,14 @@ export function registerReviewHandlers(): void {
         // Move result to user's chosen path
         await fs.promises.copyFile(tmpPath, filePath);
         console.log('[review-export] Export complete:', filePath);
+
+        // Write SRT file alongside video if requested
+        if (captionOptions?.exportSrt && adjustedCaptionWords && adjustedCaptionWords.length > 0) {
+          const srtPath = filePath.replace(/\.[^.]+$/, '.srt');
+          const srtContent = generateSRT(adjustedCaptionWords);
+          await fs.promises.writeFile(srtPath, srtContent, 'utf-8');
+          console.log('[review-export] SRT file written:', srtPath);
+        }
       } catch (err) {
         console.error('[review-export] Failed:', err);
         throw err;

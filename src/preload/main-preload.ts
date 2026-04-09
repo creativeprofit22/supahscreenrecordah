@@ -140,8 +140,8 @@ const mainAPI: MainAPI = {
 
   analyzeForReview: () => ipcRenderer.invoke(Channels.REVIEW_ANALYZE),
 
-  exportWithSegments: (filePath, buffer, keepSegments) =>
-    ipcRenderer.invoke(Channels.REVIEW_EXPORT, { filePath, buffer, keepSegments }),
+  exportWithSegments: (filePath, buffer, keepSegments, captionOptions) =>
+    ipcRenderer.invoke(Channels.REVIEW_EXPORT, { filePath, buffer, keepSegments, captionOptions }),
 
   checkWhisper: () => ipcRenderer.invoke(Channels.WHISPER_CHECK),
 

@@ -105,9 +105,11 @@ export interface ProgressBarConfig {
 }
 
 // Caption style for the recorder
+export type CaptionStylePreset = 'minimal' | 'bold' | 'viral' | 'youtube-shorts' | 'tiktok' | 'mrbeast';
+
 export interface CaptionConfig {
   enabled: boolean;
-  style: 'minimal' | 'bold' | 'viral';
+  style: CaptionStylePreset;
   position: 'bottom' | 'center' | 'top';
   fontSize: number;
   powerWords: boolean; // colorize power words

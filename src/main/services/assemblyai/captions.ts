@@ -107,7 +107,7 @@ function colorizeWord(
 }
 
 /** Group words into display chunks (max N words, break at punctuation). */
-function groupWords(
+export function groupWords(
   words: TranscribedWord[],
   maxWords: number,
 ): WordGroup[] {
@@ -246,4 +246,34 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   }
 
   return header + lines.join('\n') + '\n';
+}
+
+/** Convert seconds to SRT time format (HH:MM:SS,mmm) */
+function formatSRTTime(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const ms = Math.round((seconds % 1) * 1000);
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')},${ms.toString().padStart(3, '0')}`;
+}
+
+/**
+ * Generate SRT subtitle content from transcribed words.
+ * Groups words the same way as ASS generation for consistency.
+ */
+export function generateSRT(
+  words: TranscribedWord[],
+  maxWordsPerGroup = 4,
+): string {
+  const groups = groupWords(words, maxWordsPerGroup);
+  const lines: string[] = [];
+
+  for (let i = 0; i < groups.length; i++) {
+    lines.push(`${i + 1}`);
+    lines.push(`${formatSRTTime(groups[i].start)} --> ${formatSRTTime(groups[i].end)}`);
+    lines.push(groups[i].text);
+    lines.push('');
+  }
+
+  return lines.join('\n');
 }

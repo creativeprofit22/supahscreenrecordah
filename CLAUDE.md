@@ -19,13 +19,12 @@ macOS/Windows desktop screen + camera recorder built with Electron & TypeScript.
 - Word duration clamping (0.9s max) to expose hidden silences
 - Short speech gap bridging (<0.8s) between adjacent non-speech segments
 
-**Pending polish:**
-- Smoother export transitions (longer crossfade, possible video dissolve)
-- Stutter/repetition detection ("I'm... I'm", "to... to")
+- Smoother export cuts: 150ms audio crossfade + 80ms video fade-to-black at cut boundaries
+- Stutter/repetition detection ("I'm... I'm", "to... to") flagged as fillers
+- Auto-captions: toggle in review bar, style presets (Clean, Bold, Viral, MrBeast, YT Shorts, TikTok), Whisper words → ASS → FFmpeg burn-in at export
 
 **Pending features (from original plan):**
-- Auto-captions (Whisper word-level timestamps, burn in via FFmpeg ASS subtitles)
-- Caption styles: YouTube Shorts, TikTok, MrBeast, Clean, Custom
+- Caption styles: Custom user-defined style editor
 
 ## Tech Stack
 - **Language:** TypeScript (strict mode)

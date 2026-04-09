@@ -17,11 +17,15 @@ interface FfmpegResult {
  * Then concat all segments into a single output.
  */
 /** Audio crossfade duration in seconds — smooths hard cuts */
-const CROSSFADE_SEC = 0.05;
+const CROSSFADE_SEC = 0.15;
+
+/** Video fade-to-black duration at cut boundaries — matches audio crossfade */
+const VIDEO_FADE_SEC = 0.15;
 
 function buildFilterComplex(keepSegments: Array<{ start: number; end: number }>): string {
   const parts: string[] = [];
   const concatInputs: string[] = [];
+  const lastIdx = keepSegments.length - 1;
 
   for (let i = 0; i < keepSegments.length; i++) {
     const { start, end } = keepSegments[i];
@@ -30,9 +34,17 @@ function buildFilterComplex(keepSegments: Array<{ start: number; end: number }>)
     const segDur = end - start;
     const fadeOutStart = Math.max(0, segDur - fadeDur);
 
-    parts.push(
-      `[0:v]trim=start=${start.toFixed(6)}:end=${end.toFixed(6)},setpts=PTS-STARTPTS[v${i}]`,
-    );
+    // Video: trim + optional fade-in/out at cut boundaries
+    let videoFilter = `[0:v]trim=start=${start.toFixed(6)}:end=${end.toFixed(6)},setpts=PTS-STARTPTS`;
+    if (i > 0) {
+      videoFilter += `,fade=t=in:st=0:d=${VIDEO_FADE_SEC.toFixed(3)}`;
+    }
+    if (i < lastIdx) {
+      const vFadeOutStart = Math.max(0, segDur - VIDEO_FADE_SEC);
+      videoFilter += `,fade=t=out:st=${vFadeOutStart.toFixed(3)}:d=${VIDEO_FADE_SEC.toFixed(3)}`;
+    }
+    parts.push(`${videoFilter}[v${i}]`);
+
     parts.push(
       `[0:a]atrim=start=${start.toFixed(6)}:end=${end.toFixed(6)},asetpts=PTS-STARTPTS,afade=t=in:st=0:d=${fadeDur.toFixed(3)},afade=t=out:st=${fadeOutStart.toFixed(3)}:d=${fadeDur.toFixed(3)}[a${i}]`,
     );
