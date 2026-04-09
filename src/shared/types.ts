@@ -152,7 +152,7 @@ export interface MainAPI {
   sendAutosaveChunk: (buffer: ArrayBuffer, extension: string) => Promise<void>;
   autosaveCleanup: () => Promise<void>;
   analyzeForReview: () => Promise<ReviewAnalysisResult>;
-  exportWithSegments: (filePath: string, buffer: ArrayBuffer, keepSegments: Array<{ start: number; end: number }>, captionOptions?: { style: import('./feature-types').CaptionStylePreset; words: import('../main/services/assemblyai/types').TranscribedWord[]; resolution: { width: number; height: number }; exportSrt?: boolean; yFraction?: number }) => Promise<void>;
+  exportWithSegments: (filePath: string, buffer: ArrayBuffer, keepSegments: Array<{ start: number; end: number }>, captionOptions?: { style: import('./feature-types').CaptionStylePreset; words: import('../main/services/assemblyai/types').TranscribedWord[]; resolution: { width: number; height: number }; exportSrt?: boolean; yFraction?: number; xFraction?: number; scale?: number }) => Promise<void>;
   checkWhisper: () => Promise<{ binary: boolean; model: boolean }>;
   installWhisper: () => Promise<void>;
   onWhisperInstallProgress: (callback: (progress: import('./activation-types').InstallProgress) => void) => () => void;

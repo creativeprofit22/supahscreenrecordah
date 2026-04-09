@@ -15,6 +15,8 @@ export interface TimelineRenderState {
   hoverSegmentId: string | null;
   hoverEdge: 'start' | 'end' | null;
   snapTime: number | null;
+  trimIn: number;     // seconds — content before this is trimmed
+  trimOut: number;    // seconds — content after this is trimmed
 }
 
 // ---------------------------------------------------------------------------
@@ -85,7 +87,7 @@ export function renderTimeline(
   height: number,
   state: TimelineRenderState,
 ): void {
-  const { waveform, segments, playhead, duration, hoverSegmentId, hoverEdge, snapTime } = state;
+  const { waveform, segments, playhead, duration, hoverSegmentId, hoverEdge, snapTime, trimIn, trimOut } = state;
 
   // 1. Background
   ctx.fillStyle = '#1e1e2e';
@@ -208,7 +210,48 @@ export function renderTimeline(
     ctx.fill();
   }
 
-  // 6. Time label near playhead
+  // 6. Trim overlays — shaded regions + draggable handles at edges
+  if (duration > 0) {
+    const HANDLE_W = 6;
+
+    // Trim-in region (left side)
+    const inX = timeToX(trimIn, duration, width);
+    if (trimIn > 0) {
+      // Shaded region over trimmed content
+      ctx.fillStyle = 'rgba(243, 139, 168, 0.35)';
+      ctx.fillRect(0, 0, inX, height);
+    }
+    // Handle bar — always visible (subtle when at edge, bold when adjusted)
+    const inActive = trimIn > 0;
+    ctx.fillStyle = inActive ? '#f38ba8' : 'rgba(243, 139, 168, 0.4)';
+    ctx.fillRect(Math.max(0, inX - HANDLE_W / 2), 0, HANDLE_W, height);
+    if (inActive) {
+      ctx.fillStyle = 'rgba(30, 30, 46, 0.6)';
+      const midY = height / 2;
+      ctx.fillRect(inX - 1, midY - 8, 2, 6);
+      ctx.fillRect(inX - 1, midY + 2, 2, 6);
+    }
+
+    // Trim-out region (right side)
+    const outX = timeToX(trimOut, duration, width);
+    if (trimOut < duration) {
+      // Shaded region over trimmed content
+      ctx.fillStyle = 'rgba(243, 139, 168, 0.35)';
+      ctx.fillRect(outX, 0, width - outX, height);
+    }
+    // Handle bar — always visible
+    const outActive = trimOut < duration;
+    ctx.fillStyle = outActive ? '#f38ba8' : 'rgba(243, 139, 168, 0.4)';
+    ctx.fillRect(Math.min(width - HANDLE_W, outX - HANDLE_W / 2), 0, HANDLE_W, height);
+    if (outActive) {
+      ctx.fillStyle = 'rgba(30, 30, 46, 0.6)';
+      const midY = height / 2;
+      ctx.fillRect(outX - 1, midY - 8, 2, 6);
+      ctx.fillRect(outX - 1, midY + 2, 2, 6);
+    }
+  }
+
+  // 7. Time label near playhead
   if (duration > 0) {
     const px = timeToX(playhead, duration, width);
     const label = formatTime(playhead);

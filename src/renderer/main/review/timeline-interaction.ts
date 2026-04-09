@@ -16,7 +16,7 @@ export interface HitState {
 
 interface DragState {
   active: boolean;
-  type: 'playhead' | 'edge' | null;
+  type: 'playhead' | 'edge' | 'trim-in' | 'trim-out' | null;
   startX: number;
   startY: number;
   engaged: boolean; // past 5px threshold
@@ -28,6 +28,7 @@ interface DragState {
 type SeekFn = (time: number) => void;
 type ToggleFn = (segmentId: string) => void;
 type ResizeFn = (segmentId: string, edge: 'start' | 'end', newTime: number) => void;
+type TrimFn = (time: number) => void;
 type HitUpdateFn = (hit: HitState) => void;
 
 // ---------------------------------------------------------------------------
@@ -36,6 +37,7 @@ type HitUpdateFn = (hit: HitState) => void;
 
 const EDGE_HIT_PX = 6;
 const PLAYHEAD_HIT_PX = 6;
+const TRIM_HIT_PX = 8;
 const DRAG_THRESHOLD_PX = 5;
 const SNAP_PX = 8;
 const MIN_SEGMENT_DURATION = 0.1;
@@ -48,9 +50,13 @@ let canvas: HTMLCanvasElement | null = null;
 let getSegments: (() => ReviewSegment[]) | null = null;
 let getDuration: (() => number) | null = null;
 let getPlayhead: (() => number) | null = null;
+let getTrimInFn: (() => number) | null = null;
+let getTrimOutFn: (() => number) | null = null;
 let onSeek: SeekFn | null = null;
 let onToggle: ToggleFn | null = null;
 let onResize: ResizeFn | null = null;
+let onTrimIn: TrimFn | null = null;
+let onTrimOut: TrimFn | null = null;
 let onHitUpdate: HitUpdateFn | null = null;
 
 let drag: DragState = { active: false, type: null, startX: 0, startY: 0, engaged: false, segmentId: null, edge: null };
@@ -61,6 +67,21 @@ let snapTime: number | null = null;
 // Hit testing
 // ---------------------------------------------------------------------------
 
+function hitTestTrim(offsetX: number): 'trim-in' | 'trim-out' | null {
+  if (!getTrimInFn || !getTrimOutFn) return null;
+  const duration = getDuration!();
+  const width = canvas!.getBoundingClientRect().width;
+
+  const trimInX = timeToX(getTrimInFn(), duration, width);
+  const trimOutX = timeToX(getTrimOutFn(), duration, width);
+
+  // Always allow hitting trim handles — even at timeline edges (0 and duration).
+  // The handle may be flush with the edge, so use a wider hit zone on the inward side.
+  if (Math.abs(offsetX - trimInX) <= TRIM_HIT_PX || (trimInX === 0 && offsetX <= TRIM_HIT_PX)) return 'trim-in';
+  if (Math.abs(offsetX - trimOutX) <= TRIM_HIT_PX || (trimOutX >= width - 1 && offsetX >= width - TRIM_HIT_PX)) return 'trim-out';
+  return null;
+}
+
 function hitTest(offsetX: number): HitState {
   const segments = getSegments!();
   const duration = getDuration!();
@@ -69,6 +90,14 @@ function hitTest(offsetX: number): HitState {
   const width = rect.width;
 
   const result: HitState = { hoverSegmentId: null, hoverEdge: null, hoverPlayhead: false };
+
+  // Check trim handles first (highest priority)
+  const trimHit = hitTestTrim(offsetX);
+  if (trimHit) {
+    // Return with hoverEdge set to indicate trim handle hover
+    result.hoverEdge = trimHit === 'trim-in' ? 'start' : 'end';
+    return result;
+  }
 
   // Check playhead proximity
   const playheadX = timeToX(playhead, duration, width);
@@ -110,8 +139,14 @@ function hitTest(offsetX: number): HitState {
   return result;
 }
 
-function updateCursor(hit: HitState): void {
+function updateCursor(hit: HitState, offsetX: number): void {
   if (!canvas) return;
+  // Trim handles get priority cursor
+  const trimHit = hitTestTrim(offsetX);
+  if (trimHit) {
+    canvas.style.cursor = 'ew-resize';
+    return;
+  }
   if (hit.hoverPlayhead) {
     canvas.style.cursor = 'col-resize';
   } else if (hit.hoverEdge) {
@@ -179,10 +214,24 @@ export function getSnapIndicatorTime(): number | null {
 // ---------------------------------------------------------------------------
 
 function handleMouseDown(e: MouseEvent): void {
+  // Check trim handles first
+  const trimHit = hitTestTrim(e.offsetX);
+  if (trimHit) {
+    drag = {
+      active: true,
+      type: trimHit,
+      startX: e.offsetX,
+      startY: e.offsetY,
+      engaged: false,
+      segmentId: null,
+      edge: null,
+    };
+    return;
+  }
+
   const hit = hitTest(e.offsetX);
 
   if (hit.hoverEdge && hit.hoverSegmentId) {
-    // Start edge drag
     drag = {
       active: true,
       type: 'edge',
@@ -213,6 +262,28 @@ function handleMouseMove(e: MouseEvent): void {
 
     if (!drag.engaged && dist >= DRAG_THRESHOLD_PX) {
       drag.engaged = true;
+    }
+
+    // Trim handle dragging
+    if (drag.engaged && (drag.type === 'trim-in' || drag.type === 'trim-out')) {
+      const rect = canvas!.getBoundingClientRect();
+      const duration = getDuration!();
+      const time = xToTime(
+        Math.max(0, Math.min(e.offsetX, rect.width)),
+        duration,
+        rect.width,
+      );
+      const clampedTime = Math.max(0, Math.min(time, duration));
+      if (drag.type === 'trim-in' && onTrimIn) {
+        // Don't let trim-in pass trim-out
+        const trimOutVal = getTrimOutFn ? getTrimOutFn() : duration;
+        onTrimIn(Math.min(clampedTime, trimOutVal - 0.1));
+      } else if (drag.type === 'trim-out' && onTrimOut) {
+        // Don't let trim-out pass trim-in
+        const trimInVal = getTrimInFn ? getTrimInFn() : 0;
+        onTrimOut(Math.max(clampedTime, trimInVal + 0.1));
+      }
+      return;
     }
 
     if (drag.engaged && drag.type === 'playhead') {
@@ -287,7 +358,7 @@ function handleMouseMove(e: MouseEvent): void {
   // Not dragging — update hover state
   const hit = hitTest(e.offsetX);
   currentHit = hit;
-  updateCursor(hit);
+  updateCursor(hit, e.offsetX);
   onHitUpdate!(hit);
 }
 
@@ -339,9 +410,13 @@ export interface TimelineInteractionOptions {
   getSegments: () => ReviewSegment[];
   getDuration: () => number;
   getPlayhead: () => number;
+  getTrimIn: () => number;
+  getTrimOut: () => number;
   onSeek: SeekFn;
   onToggle: ToggleFn;
   onResize: ResizeFn;
+  onTrimIn: TrimFn;
+  onTrimOut: TrimFn;
   onHitUpdate: HitUpdateFn;
 }
 
@@ -350,9 +425,13 @@ export function initTimelineInteraction(opts: TimelineInteractionOptions): void 
   getSegments = opts.getSegments;
   getDuration = opts.getDuration;
   getPlayhead = opts.getPlayhead;
+  getTrimInFn = opts.getTrimIn;
+  getTrimOutFn = opts.getTrimOut;
   onSeek = opts.onSeek;
   onToggle = opts.onToggle;
   onResize = opts.onResize;
+  onTrimIn = opts.onTrimIn;
+  onTrimOut = opts.onTrimOut;
   onHitUpdate = opts.onHitUpdate;
 
   canvas.addEventListener('mousedown', handleMouseDown);
@@ -374,9 +453,13 @@ export function destroyTimelineInteraction(): void {
   getSegments = null;
   getDuration = null;
   getPlayhead = null;
+  getTrimInFn = null;
+  getTrimOutFn = null;
   onSeek = null;
   onToggle = null;
   onResize = null;
+  onTrimIn = null;
+  onTrimOut = null;
   onHitUpdate = null;
   drag = { active: false, type: null, startX: 0, startY: 0, engaged: false, segmentId: null, edge: null };
   snapTime = null;

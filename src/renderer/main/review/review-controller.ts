@@ -26,6 +26,10 @@ let rafId: number | null = null;
 let destroyed = false;
 let hoverState: HitState = { hoverSegmentId: null, hoverEdge: null, hoverPlayhead: false };
 
+/** Timeline trim handles — in/out points in seconds (null = full duration) */
+let trimIn = 0;
+let trimOut = Infinity;
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -66,6 +70,10 @@ export async function initReview(): Promise<void> {
       playheadPosition: 0,
     };
 
+    // Initialize trim points to full duration
+    trimIn = 0;
+    trimOut = state.duration;
+
     console.log('[review-controller] Analysis complete — segments:', state.segments.length, 'duration:', state.duration);
 
     // Remove skeleton, add slide-up animation
@@ -81,9 +89,13 @@ export async function initReview(): Promise<void> {
       getSegments: () => state?.segments ?? [],
       getDuration: () => state?.duration ?? 0,
       getPlayhead: () => playbackVideo.currentTime,
+      getTrimIn: () => trimIn,
+      getTrimOut: () => trimOut === Infinity ? (state?.duration ?? 0) : trimOut,
       onSeek: (time: number) => { playbackVideo.currentTime = time; },
       onToggle: toggleSegment,
       onResize: resizeSegment,
+      onTrimIn: (t: number) => { trimIn = Math.max(0, t); },
+      onTrimOut: (t: number) => { trimOut = Math.min(t, state?.duration ?? t); },
       onHitUpdate: (hit: HitState) => { hoverState = hit; },
     });
 
@@ -187,12 +199,46 @@ export function bulkRemoveSilencesAndFillers(): void {
   }
 }
 
+/** Disable trailing non-speech segments from the end of the recording. */
+export function trimTail(): void {
+  if (!state) return;
+  // Walk segments backwards — disable consecutive non-speech segments at the tail
+  for (let i = state.segments.length - 1; i >= 0; i--) {
+    const seg = state.segments[i];
+    if (seg.type === 'speech') break; // stop at the last speech segment
+    seg.enabled = false;
+  }
+}
+
+/** Disable leading non-speech segments from the start of the recording. */
+export function trimHead(): void {
+  if (!state) return;
+  for (const seg of state.segments) {
+    if (seg.type === 'speech') break;
+    seg.enabled = false;
+  }
+}
+
+/** Get the current trim in-point (seconds). */
+export function getTrimIn(): number { return trimIn; }
+
+/** Get the current trim out-point (seconds). */
+export function getTrimOut(): number { return trimOut; }
+
+/** Set trim in-point. */
+export function setTrimIn(t: number): void { trimIn = Math.max(0, t); }
+
+/** Set trim out-point. */
+export function setTrimOut(t: number): void { trimOut = t; }
+
 /** Re-enable all segments. */
 export function undoAll(): void {
   if (!state) return;
   for (const seg of state.segments) {
     seg.enabled = true;
   }
+  trimIn = 0;
+  trimOut = state.duration;
 }
 
 // ---------------------------------------------------------------------------
@@ -297,6 +343,8 @@ function startRenderLoop(): void {
         hoverSegmentId: hoverState.hoverSegmentId,
         hoverEdge: hoverState.hoverEdge,
         snapTime: getSnapIndicatorTime(),
+        trimIn,
+        trimOut: trimOut === Infinity ? state.duration : trimOut,
       });
 
       // Render caption preview overlay

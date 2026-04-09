@@ -16,9 +16,10 @@ import { startWaveformCapture, getSavedMicDeviceIdForRestart, clearSavedMicDevic
 import { getPauseCutPoints } from './recording';
 import {
   initReview, destroyReview, getReviewSegments, getReviewWords,
-  bulkRemoveSilences, bulkRemoveFillers, bulkRemoveSilencesAndFillers, undoAll,
+  bulkRemoveSilences, bulkRemoveFillers, bulkRemoveSilencesAndFillers,
+  trimTail, trimHead, undoAll, getTrimIn, getTrimOut,
 } from './review/review-controller';
-import { getCaptionYFraction } from './review/caption-preview';
+import { getCaptionYFraction, getCaptionXFraction, getCaptionScale } from './review/caption-preview';
 import type { PauseTimestamp } from '../../shared/types';
 
 // ---------------------------------------------------------------------------
@@ -195,16 +196,29 @@ export function initPlaybackHandlers(): void {
         const reviewSegments = getReviewSegments();
         const hasDisabledSegments = reviewSegments.length > 0 && reviewSegments.some(s => !s.enabled);
 
-        if (hasDisabledSegments || selectedCaptionStyle) {
+        // Check if trim handles were adjusted
+        const tIn = getTrimIn();
+        const tOut = getTrimOut();
+        const duration = playbackVideo.duration || 0;
+        const hasTrim = tIn > 0.05 || (tOut < duration - 0.05 && tOut < Infinity);
+
+        if (hasDisabledSegments || selectedCaptionStyle || hasTrim) {
           // Build keep-segments from enabled review segments, then merge adjacent ones
           const keepRaw = reviewSegments
             .filter(s => s.enabled)
             .map(s => ({ start: s.start, end: s.end }));
 
+          // Apply trim bounds — clamp and discard segments outside trim range
+          const trimmedRaw = keepRaw
+            .map(s => ({
+              start: Math.max(s.start, tIn),
+              end: Math.min(s.end, tOut < Infinity ? tOut : duration),
+            }))
+            .filter(s => s.end - s.start > 0.01);
+
           // Merge adjacent/overlapping segments, drop zero-duration ones
           const keepSegments: Array<{ start: number; end: number }> = [];
-          for (const seg of keepRaw) {
-            if (seg.end - seg.start < 0.01) continue; // skip zero-duration
+          for (const seg of trimmedRaw) {
             const last = keepSegments[keepSegments.length - 1];
             if (last && Math.abs(seg.start - last.end) < 0.05) {
               last.end = seg.end;
@@ -215,7 +229,7 @@ export function initPlaybackHandlers(): void {
 
           // If no segments were disabled but captions are on, use one big segment
           if (keepSegments.length === 0) {
-            keepSegments.push({ start: 0, end: playbackVideo.duration || 0 });
+            keepSegments.push({ start: tIn, end: tOut < Infinity ? tOut : duration });
           }
 
           // Build caption options if a style is selected
@@ -228,6 +242,8 @@ export function initPlaybackHandlers(): void {
             },
             exportSrt: srtExportCheckbox.checked,
             yFraction: getCaptionYFraction(),
+            xFraction: getCaptionXFraction(),
+            scale: getCaptionScale(),
           } : undefined;
 
           processingSub.textContent = selectedCaptionStyle

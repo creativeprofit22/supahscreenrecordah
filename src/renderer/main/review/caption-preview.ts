@@ -1,6 +1,5 @@
 // Caption Preview — renders word groups on a canvas overlay synced to playback
-// Only shows captions for enabled (non-cut) segments.
-// Supports draggable Y position and per-style rendering.
+// Supports draggable position (X+Y), resizable via corner handles, and per-style rendering.
 // ---------------------------------------------------------------------------
 
 import type { TranscribedWord } from '../../../main/services/assemblyai/types';
@@ -121,14 +120,48 @@ const STYLE_CONFIGS: Record<CaptionStylePreset, StyleConfig> = {
 };
 
 // ---------------------------------------------------------------------------
-// Draggable Y position state
+// Interactive caption state
 // ---------------------------------------------------------------------------
 
-/** Caption Y position as fraction of video height (0 = top, 1 = bottom) */
+/** Caption position as fractions of video render area (0–1) */
+let captionXFraction = 0.50;
 let captionYFraction = 0.50;
+
+/** Scale multiplier for caption size (1.0 = default for style) */
+let captionScale = 1.0;
+
+/** Whether captions are currently active (style selected + words exist) */
+let captionsActive = false;
+/** Whether the caption is selected (clicked on) — shows bounding box + handles */
+let isSelected = false;
 let isDragging = false;
+let isResizing = false;
+let activeHandle: string | null = null; // 'tl', 'tr', 'bl', 'br'
 let dragListenersAttached = false;
 let cleanupDragListeners: (() => void) | null = null;
+
+/** Last rendered caption bounding box in CSS pixels (not DPR-scaled), relative to canvas */
+let lastBBox: { x: number; y: number; w: number; h: number } | null = null;
+
+/** Distance from mouse to caption center at drag start (for smooth dragging) */
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+
+/** Scale at resize start + initial distance for proportional resizing */
+let resizeStartScale = 1.0;
+let resizeStartDist = 0;
+
+const HANDLE_SIZE = 6;   // px (CSS) — half-width of corner handle squares
+const HANDLE_PAD = 12;   // px — extra click tolerance around handles
+
+/** Cached layout rect — updated once per mousedown, reused during drag/resize to avoid reflow */
+let cachedCanvasRect: DOMRect | null = null;
+let cachedVideoRect: { x: number; y: number; w: number; h: number } | null = null;
+let currentCursor = '';
+
+// ---------------------------------------------------------------------------
+// Video rect helper
+// ---------------------------------------------------------------------------
 
 /** Get the actual video render rect inside the wrapper (accounting for object-fit: contain) */
 function getVideoRect(canvas: HTMLCanvasElement, video: HTMLVideoElement): {
@@ -158,51 +191,162 @@ function getVideoRect(canvas: HTMLCanvasElement, video: HTMLVideoElement): {
   return { x: renderX, y: renderY, w: renderW, h: renderH };
 }
 
-/** Drag hitzone: only start drag if clicking within 40px of the caption Y line */
-const DRAG_HIT_PX = 40;
+// ---------------------------------------------------------------------------
+// Hit testing
+// ---------------------------------------------------------------------------
 
-function setupDragListeners(canvas: HTMLCanvasElement, video: HTMLVideoElement): void {
+function isInRect(mx: number, my: number, rx: number, ry: number, rw: number, rh: number): boolean {
+  return mx >= rx && mx <= rx + rw && my >= ry && my <= ry + rh;
+}
+
+function hitTest(mx: number, my: number): 'caption' | 'tl' | 'tr' | 'bl' | 'br' | null {
+  if (!lastBBox) return null;
+  const { x, y, w, h } = lastBBox;
+  const hp = HANDLE_PAD;
+
+  // Check corner handles first (they take priority)
+  if (isInRect(mx, my, x - hp, y - hp, hp * 2, hp * 2)) return 'tl';
+  if (isInRect(mx, my, x + w - hp, y - hp, hp * 2, hp * 2)) return 'tr';
+  if (isInRect(mx, my, x - hp, y + h - hp, hp * 2, hp * 2)) return 'bl';
+  if (isInRect(mx, my, x + w - hp, y + h - hp, hp * 2, hp * 2)) return 'br';
+
+  // Check caption body (with some padding for easier targeting)
+  const pad = 8;
+  if (isInRect(mx, my, x - pad, y - pad, w + pad * 2, h + pad * 2)) return 'caption';
+
+  return null;
+}
+
+function getCursorForHit(hit: ReturnType<typeof hitTest>): string {
+  switch (hit) {
+    case 'tl': case 'br': return 'nwse-resize';
+    case 'tr': case 'bl': return 'nesw-resize';
+    case 'caption': return 'move';
+    default: return '';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Interaction listeners
+// ---------------------------------------------------------------------------
+
+function setupInteractionListeners(canvas: HTMLCanvasElement, video: HTMLVideoElement): void {
   if (dragListenersAttached) return;
   dragListenersAttached = true;
 
-  // Listen on the wrapper (parent of both video and canvas) so we don't block video controls.
-  // We intercept mousedown only near the caption line, let everything else pass through.
-  const wrapper = canvas.parentElement!;
-
   const onMouseDown = (e: MouseEvent) => {
-    const vr = getVideoRect(canvas, video);
-    const rect = wrapper.getBoundingClientRect();
-    const relY = e.clientY - rect.top - vr.y;
-    const captionPx = captionYFraction * vr.h;
+    if (!captionsActive) return;
 
-    // Only start drag if click is near the caption Y position
-    if (Math.abs(relY - captionPx) < DRAG_HIT_PX && relY >= 0 && relY <= vr.h) {
+    cachedCanvasRect = canvas.getBoundingClientRect();
+    cachedVideoRect = getVideoRect(canvas, video);
+
+    const mx = e.clientX - cachedCanvasRect.left;
+    const my = e.clientY - cachedCanvasRect.top;
+
+    const hit = lastBBox ? hitTest(mx, my) : null;
+
+    // Click on corner handle → start resize
+    if (hit === 'tl' || hit === 'tr' || hit === 'bl' || hit === 'br') {
+      isResizing = true;
+      isSelected = true;
+      activeHandle = hit;
+      resizeStartScale = captionScale;
+      const cx = lastBBox!.x + lastBBox!.w / 2;
+      const cy = lastBBox!.y + lastBBox!.h / 2;
+      resizeStartDist = Math.hypot(mx - cx, my - cy);
+      video.removeAttribute('controls');
+      video.pause();
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
+    // Click on caption body → select + start drag
+    if (hit === 'caption') {
+      isSelected = true;
       isDragging = true;
-      captionYFraction = Math.max(0.1, Math.min(0.9, relY / vr.h));
-      e.preventDefault(); // prevent video controls from activating
+      const captionCssX = cachedVideoRect.x + cachedVideoRect.w * captionXFraction;
+      const captionCssY = cachedVideoRect.y + cachedVideoRect.h * captionYFraction;
+      dragOffsetX = mx - captionCssX;
+      dragOffsetY = my - captionCssY;
+      video.removeAttribute('controls');
+      video.pause();
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
+    // Click outside caption → deselect
+    if (isSelected) {
+      isSelected = false;
+      video.setAttribute('controls', '');
+      // Let the click fall through to the video
     }
   };
 
   const onMouseMove = (e: MouseEvent) => {
-    if (!isDragging) return;
-    const vr = getVideoRect(canvas, video);
-    const rect = wrapper.getBoundingClientRect();
-    const relY = e.clientY - rect.top - vr.y;
-    captionYFraction = Math.max(0.1, Math.min(0.9, relY / vr.h));
+    if (!captionsActive) return;
+
+    if (isDragging && cachedCanvasRect && cachedVideoRect) {
+      const mx = e.clientX - cachedCanvasRect.left;
+      const my = e.clientY - cachedCanvasRect.top;
+      const newX = (mx - dragOffsetX - cachedVideoRect.x) / cachedVideoRect.w;
+      const newY = (my - dragOffsetY - cachedVideoRect.y) / cachedVideoRect.h;
+      captionXFraction = Math.max(0.05, Math.min(0.95, newX));
+      captionYFraction = Math.max(0.05, Math.min(0.95, newY));
+      e.preventDefault();
+      return;
+    }
+
+    if (isResizing && lastBBox && cachedCanvasRect) {
+      const mx = e.clientX - cachedCanvasRect.left;
+      const my = e.clientY - cachedCanvasRect.top;
+      const cx = lastBBox.x + lastBBox.w / 2;
+      const cy = lastBBox.y + lastBBox.h / 2;
+      const currentDist = Math.hypot(mx - cx, my - cy);
+      if (resizeStartDist > 0) {
+        const ratio = currentDist / resizeStartDist;
+        captionScale = Math.max(0.3, Math.min(3.0, resizeStartScale * ratio));
+      }
+      e.preventDefault();
+      return;
+    }
+
+    // Update cursor on hover — check caption/handles when visible
+    if (lastBBox) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const hit = hitTest(mx, my);
+      const newCursor = getCursorForHit(hit);
+      if (newCursor !== currentCursor) {
+        currentCursor = newCursor;
+        canvas.style.cursor = newCursor || '';
+      }
+      // Intercept pointer events when hovering caption/handles OR when selected
+      canvas.style.pointerEvents = (hit || isSelected) ? 'auto' : 'none';
+    }
   };
 
   const onMouseUp = () => {
     isDragging = false;
+    isResizing = false;
+    activeHandle = null;
+    cachedCanvasRect = null;
+    cachedVideoRect = null;
+    // Don't restore controls here — stay selected until user clicks off
   };
 
-  wrapper.addEventListener('mousedown', onMouseDown);
+  canvas.addEventListener('mousedown', onMouseDown);
   window.addEventListener('mousemove', onMouseMove);
   window.addEventListener('mouseup', onMouseUp);
 
   cleanupDragListeners = () => {
-    wrapper.removeEventListener('mousedown', onMouseDown);
+    canvas.removeEventListener('mousedown', onMouseDown);
     window.removeEventListener('mousemove', onMouseMove);
     window.removeEventListener('mouseup', onMouseUp);
+    canvas.style.pointerEvents = 'none';
+    canvas.style.cursor = '';
   };
 }
 
@@ -219,13 +363,33 @@ export function getCaptionYFraction(): number {
   return captionYFraction;
 }
 
+/** Get the current caption X fraction for export positioning. */
+export function getCaptionXFraction(): number {
+  return captionXFraction;
+}
+
+/** Get the current caption scale for export. */
+export function getCaptionScale(): number {
+  return captionScale;
+}
+
 /** Reset caption state (called when exiting review). */
 export function resetCaptionPreview(): void {
   cachedGroups = [];
   cachedStyle = null;
   cachedWordsLen = 0;
+  captionXFraction = 0.50;
   captionYFraction = 0.50;
+  captionScale = 1.0;
+  captionsActive = false;
+  isSelected = false;
   isDragging = false;
+  isResizing = false;
+  activeHandle = null;
+  lastBBox = null;
+  cachedCanvasRect = null;
+  cachedVideoRect = null;
+  currentCursor = '';
   if (cleanupDragListeners) {
     cleanupDragListeners();
     cleanupDragListeners = null;
@@ -266,14 +430,21 @@ export function renderCaptionPreview(
 
   ctx.clearRect(0, 0, w, h);
 
-  if (!style || words.length === 0) return;
+  if (!style || words.length === 0) {
+    captionsActive = false;
+    lastBBox = null;
+    return;
+  }
 
-  // Set up drag listeners on first render with captions
-  setupDragListeners(canvas, video);
+  captionsActive = true;
+
+  // Set up interaction listeners on first render with captions
+  setupInteractionListeners(canvas, video);
 
   // Don't render captions during disabled (cut) segments
   for (const seg of segments) {
     if (!seg.enabled && currentTime >= seg.start && currentTime < seg.end) {
+      lastBBox = null;
       return;
     }
   }
@@ -296,7 +467,10 @@ export function renderCaptionPreview(
     }
   }
 
-  if (!activeGroup) return;
+  if (!activeGroup) {
+    lastBBox = null;
+    return;
+  }
 
   // Compute video render area within canvas (object-fit: contain)
   const vr = getVideoRect(canvas, video);
@@ -307,15 +481,31 @@ export function renderCaptionPreview(
     h: vr.h * dpr,
   };
 
-  // Font size scales with video render height
-  const baseFontSize = Math.round((vrDpr.h / 20) * sc.fontSize);
+  // Font size scales with video render height and user scale
+  const baseFontSize = Math.round((vrDpr.h / 20) * sc.fontSize * captionScale);
   const fontWeight = sc.bold ? 'bold' : 'normal';
   ctx.font = `${fontWeight} ${baseFontSize}px Arial, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  const centerX = vrDpr.x + vrDpr.w / 2;
+  const centerX = vrDpr.x + vrDpr.w * captionXFraction;
   const captionY = vrDpr.y + vrDpr.h * captionYFraction;
+
+  const rawText = activeGroup.text;
+  const displayText = sc.uppercase ? rawText.toUpperCase() : rawText;
+
+  // Measure text to compute bounding box
+  const metrics = ctx.measureText(displayText);
+  const textW = metrics.width;
+  const textH = baseFontSize * 1.3; // approximate line height
+
+  // Store bounding box in CSS pixels (not DPR) for hit testing
+  lastBBox = {
+    x: (centerX - textW / 2) / dpr,
+    y: (captionY - textH / 2) / dpr,
+    w: textW / dpr,
+    h: textH / dpr,
+  };
 
   // Shadow
   if (sc.shadowBlur > 0) {
@@ -326,10 +516,8 @@ export function renderCaptionPreview(
   }
 
   if (sc.powerWords) {
-    // Per-word rendering with power word colorization
     renderWordsWithColors(ctx, activeGroup, centerX, captionY, baseFontSize, sc, dpr);
   } else {
-    // Simple single-color text
     const text = sc.uppercase ? activeGroup.text.toUpperCase() : activeGroup.text;
     renderTextWithOutline(ctx, text, centerX, captionY, sc.fillColor, sc.outlineWidth * dpr * 0.6, dpr);
   }
@@ -340,19 +528,65 @@ export function renderCaptionPreview(
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
 
-  // Draw subtle drag hint line when hovering/dragging
-  if (isDragging) {
-    ctx.save();
-    ctx.strokeStyle = 'rgba(203, 166, 247, 0.5)';
-    ctx.lineWidth = 1 * dpr;
-    ctx.setLineDash([4 * dpr, 4 * dpr]);
-    ctx.beginPath();
-    ctx.moveTo(vrDpr.x + 20 * dpr, captionY);
-    ctx.lineTo(vrDpr.x + vrDpr.w - 20 * dpr, captionY);
-    ctx.stroke();
-    ctx.restore();
+  // Draw selection UI (bounding box + corner handles) when caption is selected
+  if (isSelected) {
+    drawSelectionUI(ctx, centerX, captionY, textW, textH, dpr);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Selection UI (bounding box + corner handles)
+// ---------------------------------------------------------------------------
+
+function drawSelectionUI(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  textW: number,
+  textH: number,
+  dpr: number,
+): void {
+  const pad = 10 * dpr;
+  const bx = cx - textW / 2 - pad;
+  const by = cy - textH / 2 - pad;
+  const bw = textW + pad * 2;
+  const bh = textH + pad * 2;
+
+  ctx.save();
+
+  // Dashed bounding box
+  ctx.strokeStyle = 'rgba(203, 166, 247, 0.7)';
+  ctx.lineWidth = 1.5 * dpr;
+  ctx.setLineDash([4 * dpr, 4 * dpr]);
+  ctx.strokeRect(bx, by, bw, bh);
+  ctx.setLineDash([]);
+
+  // Corner handles
+  const hs = HANDLE_SIZE * dpr;
+  const handleColor = 'rgba(203, 166, 247, 0.9)';
+  const handleBorder = 'rgba(255, 255, 255, 0.9)';
+
+  const corners = [
+    { x: bx, y: by },             // top-left
+    { x: bx + bw, y: by },        // top-right
+    { x: bx, y: by + bh },        // bottom-left
+    { x: bx + bw, y: by + bh },   // bottom-right
+  ];
+
+  for (const c of corners) {
+    ctx.fillStyle = handleColor;
+    ctx.fillRect(c.x - hs, c.y - hs, hs * 2, hs * 2);
+    ctx.strokeStyle = handleBorder;
+    ctx.lineWidth = 1 * dpr;
+    ctx.strokeRect(c.x - hs, c.y - hs, hs * 2, hs * 2);
+  }
+
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------------------
+// Text rendering helpers
+// ---------------------------------------------------------------------------
 
 function renderTextWithOutline(
   ctx: CanvasRenderingContext2D,

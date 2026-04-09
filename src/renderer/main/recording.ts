@@ -46,6 +46,7 @@ import { drawKeyboardOverlayOnCanvas } from './overlays/keyboard-overlay';
 import { applyPerspectiveToCtx } from './overlays/perspective';
 import { processBlurFrame } from './overlays/webcam-blur';
 import { drawWatermark } from './overlays/watermark';
+import { drawImageEdgeSafe } from '../lib/canvas-utils';
 import { isVisible as isPerfVisible, updatePipelineState } from '../../renderer/lib/perf-monitor';
 import { initClickSounds, disposeClickSounds } from './audio/click-sounds';
 import { initDucking, disposeDucking } from './audio/ducking';
@@ -356,8 +357,10 @@ function drawShortsFrame(): void {
       sh = natH / effectiveZoom;
       const relPos = getMouseRelativeToCaptured();
       if (relPos) {
-        sx = Math.max(0, Math.min(natW - sw, relPos.relX * natW - sw / 2));
-        sy = Math.max(0, Math.min(natH - sh, relPos.relY * natH - sh / 2));
+        // Don't clamp — allow crop to extend beyond screen edges so the
+        // cursor stays centered.  Overflow shows the background fill.
+        sx = relPos.relX * natW - sw / 2;
+        sy = relPos.relY * natH - sh / 2;
       } else {
         sx = (natW - sw) / 2;
         sy = (natH - sh) / 2;
@@ -375,7 +378,7 @@ function drawShortsFrame(): void {
         sh = cropH;
       }
 
-      recCtx.drawImage(screenVideo, sx, sy, sw, sh, 0, 0, w, screenZoneH);
+      drawImageEdgeSafe(recCtx, screenVideo, sx, sy, sw, sh, 0, 0, w, screenZoneH, natW, natH);
     }
   }
 
@@ -1007,6 +1010,10 @@ export async function startRecording(micDeviceId: string | null): Promise<void> 
   recCanvas.width = outputW;
   recCanvas.height = outputH;
   recCtx = recCanvas.getContext('2d');
+  if (recCtx) {
+    recCtx.imageSmoothingEnabled = true;
+    recCtx.imageSmoothingQuality = 'high';
+  }
 
   // Start compositing loop — use setInterval for consistent frame delivery
   // (requestAnimationFrame is throttled when the window is backgrounded)

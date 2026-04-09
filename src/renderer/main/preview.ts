@@ -33,6 +33,7 @@ import { startZoomLoop, stopZoomLoop, sizeBgCanvas, getMouseRelativeToCaptured }
 import { updateSmoothMouse } from './overlays/cursor';
 import { processBlurFrame } from './overlays/webcam-blur';
 import { startWaveformCapture, stopWaveformCapture, sizeWaveformCanvas } from './overlays/waveform';
+import { drawImageEdgeSafe } from '../lib/canvas-utils';
 import type { PreviewSelection } from '../../shared/types';
 
 // ---------------------------------------------------------------------------
@@ -259,7 +260,14 @@ export async function startScreenPreview(sourceId: string, animate?: boolean, so
     await window.mainAPI.selectScreenSource(sourceId, sourceName);
     const stream = await navigator.mediaDevices.getDisplayMedia({
       audio: false,
-      video: true,
+      video: {
+        // Request highest possible resolution — without explicit constraints,
+        // Chromium on Windows with DPI scaling may capture at logical (scaled-down)
+        // resolution instead of the native physical resolution.
+        width: { ideal: 3840 },
+        height: { ideal: 2160 },
+        frameRate: { ideal: 30 },
+      },
     });
     setScreenStream(stream);
 
@@ -671,8 +679,10 @@ function startShortsPreviewLoop(): void {
         sh = natH / effectiveZoom;
         const relPos = getMouseRelativeToCaptured();
         if (relPos) {
-          const targetSx = Math.max(0, Math.min(natW - sw, relPos.relX * natW - sw / 2));
-          const targetSy = Math.max(0, Math.min(natH - sh, relPos.relY * natH - sh / 2));
+          // Don't clamp — allow crop to extend beyond screen edges so the
+          // cursor stays centered.  Overflow shows the background fill.
+          const targetSx = relPos.relX * natW - sw / 2;
+          const targetSy = relPos.relY * natH - sh / 2;
           // Adaptive smoothing: snap fast on big jumps (zoom-in), smooth on small movements (anti-jitter)
           const dist = Math.abs(targetSx - smoothCropSx) + Math.abs(targetSy - smoothCropSy);
           const t = Math.min(1, dist / CROP_SNAP_THRESHOLD);
@@ -700,7 +710,7 @@ function startShortsPreviewLoop(): void {
           sh = cropH;
         }
 
-        ctx.drawImage(screenVideo, sx, sy, sw, sh, 0, 0, w, screenZoneH);
+        drawImageEdgeSafe(ctx, screenVideo, sx, sy, sw, sh, 0, 0, w, screenZoneH, natW, natH);
       }
     }
 

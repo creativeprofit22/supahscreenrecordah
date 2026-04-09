@@ -55,6 +55,8 @@ export interface CaptionOptions {
   fadeInMs?: number;
   fadeOutMs?: number;
   resolution?: { width: number; height: number };
+  /** When set, each dialogue line gets a \pos(x,y) override for precise positioning */
+  posOverride?: { x: number; y: number };
 }
 
 const DEFAULT_STYLE: CaptionStyle = {
@@ -236,8 +238,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       .map((w) => colorizeWord(w.text, allPowerWords))
       .join(' ');
 
+    const posTag = options.posOverride
+      ? `{\\pos(${options.posOverride.x},${options.posOverride.y})}`
+      : '';
     const fadeTag = `{\\fad(${fadeInMs},${fadeOutMs})}`;
-    const text = fadeTag + colorized;
+    const text = posTag + fadeTag + colorized;
 
     const startTime = formatTime(group.start);
     const endTime = formatTime(group.end);

@@ -135,6 +135,8 @@ export function registerReviewHandlers(): void {
         resolution: { width: number; height: number };
         exportSrt?: boolean;
         yFraction?: number;
+        xFraction?: number;
+        scale?: number;
       };
     }) => {
       if (!isValidSender(event)) {
@@ -194,25 +196,29 @@ export function registerReviewHandlers(): void {
             const aspectRatio = isVertical ? '9:16' as const : '16:9' as const;
 
             const yFrac = captionOptions.yFraction ?? 0.5;
-            // Map yFraction to ASS position: use alignment 5 (center) with marginV offset
-            // marginV in ASS moves the subtitle from center when alignment=5
-            // yFrac 0.5 → marginV 0, yFrac 0.3 → positive offset upward, yFrac 0.7 → negative (downward)
-            const centerOffset = Math.round((0.5 - yFrac) * height);
+            const xFrac = captionOptions.xFraction ?? 0.5;
+            const userScale = captionOptions.scale ?? 1.0;
 
             const captionConfig = {
               enabled: true,
               style: captionOptions.style,
               position: 'center' as const,
-              fontSize: isVertical ? 72 : 48,
+              fontSize: Math.round((isVertical ? 72 : 48) * userScale),
               powerWords: captionOptions.style === 'viral' || captionOptions.style === 'mrbeast',
             };
 
             const captionOpts = buildCaptionOptions(captionConfig, aspectRatio);
             captionOpts.resolution = { width, height };
-            // Apply user's dragged Y position
+
+            // Apply user's position via \pos(x,y) override on each dialogue line
+            const posX = Math.round(xFrac * width);
+            const posY = Math.round(yFrac * height);
+            captionOpts.posOverride = { x: posX, y: posY };
+
+            // Keep alignment center so \pos works from the center of the text
             if (captionOpts.style) {
-              captionOpts.style.marginV = Math.max(0, centerOffset);
-              captionOpts.style.alignment = yFrac < 0.4 ? 8 : yFrac > 0.6 ? 2 : 5;
+              captionOpts.style.alignment = 5;
+              captionOpts.style.marginV = 0;
             }
 
             const assContent = generateASS(adjustedCaptionWords, captionOpts);
