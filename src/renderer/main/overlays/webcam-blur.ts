@@ -1,11 +1,18 @@
 // Webcam background blur using MediaPipe ImageSegmenter
-// Uses the "selfie_segmenter_landscape" model for fast person segmentation.
-// The person stays sharp while the background receives a strong Gaussian blur.
+// Uses "selfie_segmenter" (general, 256×256) for vertical layouts and
+// "selfie_segmenter_landscape" (144×256) for landscape — the general model
+// provides better mask quality when the webcam is cropped to a portrait zone.
 // ---------------------------------------------------------------------------
 
 import { ImageSegmenter, FilesetResolver } from '@mediapipe/tasks-vision';
 
+const MODEL_LANDSCAPE =
+  'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter_landscape/float16/latest/selfie_segmenter_landscape.tflite';
+const MODEL_GENERAL =
+  'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite';
+
 let segmenter: ImageSegmenter | null = null;
+let currentModelPortrait = false; // tracks which model is loaded
 let blurCanvas: OffscreenCanvas | null = null;
 let blurCtx: OffscreenCanvasRenderingContext2D | null = null;
 let compCanvas: OffscreenCanvas | null = null;
@@ -25,10 +32,26 @@ export function isSegmenterReady(): boolean {
 // Initialise MediaPipe ImageSegmenter
 // ---------------------------------------------------------------------------
 
-export function initWebcamBlur(): Promise<void> {
-  if (segmenter) return Promise.resolve();
+/**
+ * Initialise the segmenter. Pass `portrait = true` for vertical/shorts
+ * layouts — this uses the general model (256×256) which gives better mask
+ * edges when the webcam feed is cropped to a tall region.
+ */
+export function initWebcamBlur(portrait = false): Promise<void> {
+  // Already loaded with the correct model — nothing to do
+  if (segmenter && currentModelPortrait === portrait) return Promise.resolve();
+
+  // Model mismatch — dispose the old one so we reload with the right model
+  if (segmenter && currentModelPortrait !== portrait) {
+    segmenter.close();
+    segmenter = null;
+    lastMask = null;
+  }
+
   // If already initializing, return the shared promise so all callers wait
   if (initPromise) return initPromise;
+
+  const modelPath = portrait ? MODEL_GENERAL : MODEL_LANDSCAPE;
 
   initPromise = (async () => {
     try {
@@ -38,8 +61,7 @@ export function initWebcamBlur(): Promise<void> {
 
       segmenter = await ImageSegmenter.createFromOptions(vision, {
         baseOptions: {
-          modelAssetPath:
-            'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter_landscape/float16/latest/selfie_segmenter_landscape.tflite',
+          modelAssetPath: modelPath,
           delegate: 'GPU',
         },
         runningMode: 'VIDEO',
@@ -47,7 +69,9 @@ export function initWebcamBlur(): Promise<void> {
         outputConfidenceMasks: true,
       });
 
-      console.log('[webcam-blur] MediaPipe ImageSegmenter initialised');
+      currentModelPortrait = portrait;
+      const modelName = portrait ? 'selfie_segmenter (general)' : 'selfie_segmenter_landscape';
+      console.log(`[webcam-blur] MediaPipe ImageSegmenter initialised — model: ${modelName}`);
     } catch (err) {
       console.error('[webcam-blur] Failed to init segmenter:', err);
       segmenter = null;
@@ -278,6 +302,7 @@ export function disposeWebcamBlur(): void {
     segmenter.close();
     segmenter = null;
   }
+  currentModelPortrait = false;
   blurCanvas = null;
   blurCtx = null;
   compCanvas = null;

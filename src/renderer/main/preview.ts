@@ -137,6 +137,7 @@ export function fitScreenVideo(): void {
   // Clamp screenX within allowed bounds
   clampScreenX();
   screenVideo.style.left = `${Math.round(screenX)}px`;
+
 }
 
 // ---------------------------------------------------------------------------
@@ -659,8 +660,9 @@ function startShortsPreviewLoop(): void {
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, w, h);
 
-    // Camera takes the bottom 35%, screen gets the top 65%
-    const camZoneH = Math.round(h * 0.35);
+    // Camera takes the bottom 35% — but only when a camera is actually active
+    const hasCam = cameraContainer.classList.contains('active') && !!cameraVideo.videoWidth;
+    const camZoneH = hasCam ? Math.round(h * 0.35) : 0;
     const screenZoneH = h - camZoneH;
 
     // ── Screen (top portion) — cover-crop with zoom support ──
@@ -679,10 +681,11 @@ function startShortsPreviewLoop(): void {
         sh = natH / effectiveZoom;
         const relPos = getMouseRelativeToCaptured();
         if (relPos) {
-          // Don't clamp — allow crop to extend beyond screen edges so the
-          // cursor stays centered.  Overflow shows the background fill.
-          const targetSx = relPos.relX * natW - sw / 2;
-          const targetSy = relPos.relY * natH - sh / 2;
+          // Clamp crop to screen edges so no black space appears.
+          // The cursor won't be perfectly centered near edges, but the
+          // frame stays fully filled with content.
+          const targetSx = Math.max(0, Math.min(natW - sw, relPos.relX * natW - sw / 2));
+          const targetSy = Math.max(0, Math.min(natH - sh, relPos.relY * natH - sh / 2));
           // Adaptive smoothing: snap fast on big jumps (zoom-in), smooth on small movements (anti-jitter)
           const dist = Math.abs(targetSx - smoothCropSx) + Math.abs(targetSy - smoothCropSy);
           const t = Math.min(1, dist / CROP_SNAP_THRESHOLD);

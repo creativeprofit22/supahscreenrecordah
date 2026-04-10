@@ -333,8 +333,9 @@ function drawShortsFrame(): void {
   recCtx.fillStyle = '#000000';
   recCtx.fillRect(0, 0, w, h);
 
-  // Camera takes the bottom 35%, screen gets the top 65%
-  const camZoneH = Math.round(h * 0.35);
+  // Camera takes the bottom 35% — but only when a camera is actually active
+  const hasCam = cameraContainer.classList.contains('active') && !!cameraVideo.videoWidth;
+  const camZoneH = hasCam ? Math.round(h * 0.35) : 0;
   const screenZoneH = h - camZoneH;
 
   // Update smooth mouse for zoom
@@ -357,10 +358,9 @@ function drawShortsFrame(): void {
       sh = natH / effectiveZoom;
       const relPos = getMouseRelativeToCaptured();
       if (relPos) {
-        // Don't clamp — allow crop to extend beyond screen edges so the
-        // cursor stays centered.  Overflow shows the background fill.
-        sx = relPos.relX * natW - sw / 2;
-        sy = relPos.relY * natH - sh / 2;
+        // Clamp crop to screen edges so no black space appears.
+        sx = Math.max(0, Math.min(natW - sw, relPos.relX * natW - sw / 2));
+        sy = Math.max(0, Math.min(natH - sh, relPos.relY * natH - sh / 2));
       } else {
         sx = (natW - sw) / 2;
         sy = (natH - sh) / 2;

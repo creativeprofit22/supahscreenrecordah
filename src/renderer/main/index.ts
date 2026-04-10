@@ -35,7 +35,7 @@ import {
   activeAspectRatio,
   countdownEnabled,
   setCurrentMouseX, setCurrentMouseY,
-  setDisplayBounds,
+  setDisplayBounds, setDisplayScaleFactor,
   setOverlayName,
   setBgColor, bgColor,
   setActiveBgStyle, activeBgStyle,
@@ -64,6 +64,9 @@ window.mainAPI.onMousePosition((position) => {
   setCurrentMouseX(position.x);
   setCurrentMouseY(position.y);
   setDisplayBounds(position.displayBounds);
+  if (position.scaleFactor) {
+    setDisplayScaleFactor(position.scaleFactor);
+  }
 });
 
 window.mainAPI.onMouseClick((event) => {
@@ -186,7 +189,7 @@ window.mainAPI.onWebcamBlurToggle(() => {
     disposeWebcamBlur();
   } else {
     setActiveWebcamBlur(true);
-    void initWebcamBlur().then(() => {
+    void initWebcamBlur(isShortsMode()).then(() => {
       // In shorts mode the canvas loop in preview.ts reads activeWebcamBlur
       // and calls processBlurFrame directly — no overlay needed.
       if (isShortsMode()) return;
@@ -209,6 +212,12 @@ window.mainAPI.onWebcamBlurToggle(() => {
 window.mainAPI.onAspectRatioUpdate((ratio) => {
   applyAspectRatioLayout(ratio);
   refreshRecLayoutCache();
+
+  // If webcam blur is active and the layout orientation changed, swap the
+  // segmenter model (general for portrait, landscape-optimized for landscape)
+  if (activeWebcamBlur) {
+    void initWebcamBlur(isShortsMode());
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -329,7 +338,7 @@ function applyOverlay(settings: OverlayConfig): void {
   if (wantWebcamBlur && !activeWebcamBlur) {
     // Turning on — init segmenter; shorts mode uses its own canvas loop
     setActiveWebcamBlur(true);
-    void initWebcamBlur().then(() => {
+    void initWebcamBlur(isShortsMode()).then(() => {
       if (isShortsMode()) return;
       if (!isSegmenterReady()) { setActiveWebcamBlur(false); return; }
       startPreviewBlur(cameraVideo, cameraContainer, webcamBlurIntensity);

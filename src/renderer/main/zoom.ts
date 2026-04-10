@@ -17,7 +17,7 @@ import {
   screenStream,
   smoothMouseX, smoothMouseY,
   currentMouseX, currentMouseY,
-  capturedBounds,
+  capturedBounds, displayScaleFactor,
   currentZoom,
   isMouseHeld, setIsMouseHeld,
   zoomOutTimeout, setZoomOutTimeout,
@@ -185,29 +185,34 @@ function clickZoomRange(mouseZoom: number): { min: number; max: number } {
  * @returns Relative position (0-1) within captured content, or null if mouse is outside
  */
 export function getMouseRelativeToCaptured(): { relX: number; relY: number } | null {
-  // Check if mouse is within the captured bounds
-  const inCapturedX =
-    smoothMouseX >= capturedBounds.x &&
-    smoothMouseX <= capturedBounds.x + capturedBounds.width;
-  const inCapturedY =
-    smoothMouseY >= capturedBounds.y &&
-    smoothMouseY <= capturedBounds.y + capturedBounds.height;
+  // On Windows with DPI scaling, cursor coordinates from getCursorScreenPoint()
+  // may be in physical pixels while Display.bounds are in logical/DIP pixels.
+  // Detect and correct this mismatch using the display scale factor.
+  const sf = displayScaleFactor;
+  let mx = smoothMouseX;
+  let my = smoothMouseY;
 
-  // For window captures, if mouse is outside the window, clamp to edges
-  // For screen captures, mouse should always be within bounds
-  let clampedX = smoothMouseX;
-  let clampedY = smoothMouseY;
-  if (!inCapturedX || !inCapturedY) {
-    // Mouse is outside captured region - clamp to bounds
-    clampedX = Math.max(
-      capturedBounds.x,
-      Math.min(capturedBounds.x + capturedBounds.width, smoothMouseX),
-    );
-    clampedY = Math.max(
-      capturedBounds.y,
-      Math.min(capturedBounds.y + capturedBounds.height, smoothMouseY),
-    );
+  // If mouse coordinates exceed the bounds by roughly the scale factor,
+  // the cursor is likely in physical pixels — convert to logical.
+  if (sf > 1) {
+    const rawRelX = (mx - capturedBounds.x) / capturedBounds.width;
+    const rawRelY = (my - capturedBounds.y) / capturedBounds.height;
+    if (rawRelX > 1.05 || rawRelY > 1.05) {
+      // Cursor appears to be in physical pixels; divide by scale factor
+      mx = mx / sf;
+      my = my / sf;
+    }
   }
+
+  // Clamp to captured bounds
+  const clampedX = Math.max(
+    capturedBounds.x,
+    Math.min(capturedBounds.x + capturedBounds.width, mx),
+  );
+  const clampedY = Math.max(
+    capturedBounds.y,
+    Math.min(capturedBounds.y + capturedBounds.height, my),
+  );
 
   const relX = (clampedX - capturedBounds.x) / capturedBounds.width;
   const relY = (clampedY - capturedBounds.y) / capturedBounds.height;

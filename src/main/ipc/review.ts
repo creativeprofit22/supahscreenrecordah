@@ -204,7 +204,7 @@ export function registerReviewHandlers(): void {
               enabled: true,
               style: captionOptions.style,
               position: 'center' as const,
-              fontSize: Math.round((isVertical ? 72 : 48) * userScale),
+              fontSize: Math.round(48 * userScale),
               powerWords: captionOptions.style === 'electric' || captionOptions.style === 'knockout',
             };
 

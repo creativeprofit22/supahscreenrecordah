@@ -6,7 +6,7 @@ import { clipboard, Notification } from 'electron';
 import { findFfmpeg } from './dependencies';
 import { VIDEO_ENCODE_FLAGS, FFMPEG_EXEC_OPTIONS } from './ffmpeg';
 import { transcribe } from './assemblyai';
-import { generateASS, type CaptionOptions } from './assemblyai/captions';
+import { generateASS, type CaptionOptions, type CaptionAnimation } from './assemblyai/captions';
 import { detectSilences, detectFillers, buildCutSegments, adjustWordsForCuts } from './assemblyai/silence';
 import { formatYouTubeChapters, adjustChaptersForCuts, type Chapter } from './assemblyai/chapters';
 import { cutSilenceRegions } from './ffmpeg/silence-cut';
@@ -31,20 +31,36 @@ function sendCaptionProgress(stage: CaptionStage): void {
 /** Build CaptionOptions from user CaptionConfig and aspect ratio. */
 export function buildCaptionOptions(config: CaptionConfig, aspectRatio: AspectRatio): CaptionOptions {
   const { width, height } = ASPECT_RATIOS[aspectRatio];
+  const isVertical = height > width;
+
+  // Scale base font size for vertical (taller PlayResY needs larger sizes to look the same)
+  const baseSize = isVertical
+    ? Math.round(config.fontSize * 1.5)
+    : config.fontSize;
+
+  // Map style to entrance animation (matches canvas preview animations)
+  const STYLE_ANIMATIONS: Record<string, CaptionAnimation> = {
+    clean: 'none',
+    spotlight: 'none',      // uses word-highlight via highlightColor
+    electric: 'pop',        // active word pops up
+    knockout: 'bounce',     // words bounce in
+    candy: 'none',          // uses word-highlight via highlightColor
+    flow: 'none',           // uses karaoke via highlightColor
+  };
 
   const options: CaptionOptions = {
     position: config.position,
-    fontSize: config.fontSize,
     resolution: { width, height },
     maxWordsPerGroup: 4,
     powerWords: config.powerWords ? undefined : {},
+    animation: STYLE_ANIMATIONS[config.style] ?? 'none',
   };
 
   switch (config.style) {
     case 'clean':
       options.style = {
         font: 'Arial',
-        size: config.fontSize,
+        size: baseSize,
         color: '&HFFFFFF&',
         outlineColor: '&H000000&',
         bold: false,
@@ -58,7 +74,7 @@ export function buildCaptionOptions(config: CaptionConfig, aspectRatio: AspectRa
     case 'spotlight':
       options.style = {
         font: 'Montserrat',
-        size: Math.round(config.fontSize * 1.3),
+        size: Math.round(baseSize * 1.3),
         color: '&HFFFFFF&',
         outlineColor: '&H000000&',
         bold: true,
@@ -74,7 +90,7 @@ export function buildCaptionOptions(config: CaptionConfig, aspectRatio: AspectRa
       // Power word colorization enabled, center-positioned, heavy outline
       options.style = {
         font: 'Impact',
-        size: Math.round(config.fontSize * (config.style === 'knockout' ? 1.4 : 1.2)),
+        size: Math.round(baseSize * (config.style === 'knockout' ? 1.4 : 1.2)),
         color: '&HFFFFFF&',
         outlineColor: '&H000000&',
         bold: true,
@@ -91,7 +107,7 @@ export function buildCaptionOptions(config: CaptionConfig, aspectRatio: AspectRa
     case 'candy':
       options.style = {
         font: 'Impact',
-        size: Math.round(config.fontSize * 1.3),
+        size: Math.round(baseSize * 1.3),
         color: '&HFFFFFF&',
         outlineColor: '&H000000&',
         bold: true,
@@ -106,7 +122,7 @@ export function buildCaptionOptions(config: CaptionConfig, aspectRatio: AspectRa
     case 'flow':
       options.style = {
         font: 'Arial',
-        size: Math.round(config.fontSize * 1.1),
+        size: Math.round(baseSize * 1.1),
         color: '&HFFFFFF&',
         outlineColor: '&H000000&',
         bold: true,

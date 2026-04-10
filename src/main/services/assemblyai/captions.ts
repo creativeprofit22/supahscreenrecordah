@@ -46,6 +46,8 @@ export interface CaptionStyle {
   marginV: number;
 }
 
+export type CaptionAnimation = 'none' | 'pop' | 'bounce' | 'slide-up';
+
 export interface CaptionOptions {
   style?: Partial<CaptionStyle>;
   position?: 'center' | 'bottom' | 'top';
@@ -59,6 +61,8 @@ export interface CaptionOptions {
   posOverride?: { x: number; y: number };
   /** Highlight color for active word (ASS BGR format &HBBGGRR&). When set, emits per-word Dialogue lines. */
   highlightColor?: string;
+  /** Entrance animation for each caption group */
+  animation?: CaptionAnimation;
 }
 
 const DEFAULT_STYLE: CaptionStyle = {
@@ -90,6 +94,34 @@ function formatTime(seconds: number): string {
   const cs = Math.floor((s % 1) * 100);
   const si = Math.floor(s);
   return `${h}:${m.toString().padStart(2, '0')}:${si.toString().padStart(2, '0')}.${cs.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Build ASS override tags for entrance animations.
+ * Returns the tag string to prepend to dialogue text (e.g. scale/move transitions).
+ */
+function buildAnimationTag(
+  animation: CaptionAnimation,
+  posOverride?: { x: number; y: number },
+): string {
+  switch (animation) {
+    case 'pop':
+      // Scale from 60% to 100% over 150ms
+      return '{\\fscx60\\fscy60\\t(0,150,\\fscx100\\fscy100)}';
+    case 'bounce':
+      // Scale from 40% → overshoot to 115% → settle at 100%
+      return '{\\fscx40\\fscy40\\t(0,120,\\fscx115\\fscy115)\\t(120,220,\\fscx100\\fscy100)}';
+    case 'slide-up':
+      // Slide up from below. With \pos we can use \move; without, fall back to a pop.
+      if (posOverride) {
+        const slideOffset = 60;
+        return `{\\move(${posOverride.x},${posOverride.y + slideOffset},${posOverride.x},${posOverride.y},0,180)}`;
+      }
+      // Fallback: pop entrance when position isn't known
+      return '{\\fscx70\\fscy70\\t(0,180,\\fscx100\\fscy100)}';
+    default:
+      return '';
+  }
 }
 
 /** Clean a word for power-word matching (strip punctuation, lowercase). */
@@ -235,10 +267,15 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   const groups = groupWords(words, maxWordsPerGroup);
   const lines: string[] = [];
   const highlightColor = options.highlightColor;
+  const animation = options.animation ?? 'none';
 
   const posTag = options.posOverride
     ? `{\\pos(${options.posOverride.x},${options.posOverride.y})}`
     : '';
+
+  // Entrance animation tag — slide-up uses \move which replaces \pos
+  const animTag = buildAnimationTag(animation, options.posOverride);
+  const usesMoveTag = animation === 'slide-up' && !!options.posOverride;
 
   if (highlightColor) {
     // Per-word highlighting: emit one Dialogue per word's time span.
@@ -260,7 +297,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         }
 
         const fadeTag = `{\\fad(${fadeInMs},${fadeOutMs})}`;
-        const text = posTag + fadeTag + parts.join(' ');
+        // Apply entrance animation on the first word of each group
+        const groupAnimTag = wi === 0 ? animTag : '';
+        // slide-up \move replaces \pos; other animations stack with \pos
+        const groupPosTag = (wi === 0 && usesMoveTag) ? '' : posTag;
+        const text = groupPosTag + fadeTag + groupAnimTag + parts.join(' ');
         const startTime = formatTime(word.start);
         const endTime = formatTime(word.end);
         lines.push(`Dialogue: 0,${startTime},${endTime},Default,,0,0,0,,${text}`);
@@ -274,7 +315,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         .join(' ');
 
       const fadeTag = `{\\fad(${fadeInMs},${fadeOutMs})}`;
-      const text = posTag + fadeTag + colorized;
+      // slide-up \move replaces \pos; other animations stack with \pos
+      const groupPosTag = usesMoveTag ? '' : posTag;
+      const text = groupPosTag + fadeTag + animTag + colorized;
 
       const startTime = formatTime(group.start);
       const endTime = formatTime(group.end);
