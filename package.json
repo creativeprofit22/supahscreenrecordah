@@ -78,10 +78,13 @@
     "extraResources": [],
     "electronFuses": {
       "runAsNode": false,
+      "enableCookieEncryption": true,
       "enableNodeCliInspectArguments": false,
       "enableNodeOptionsEnvironmentVariable": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
       "onlyLoadAppFromAsar": true,
-      "grantFileProtocolExtraPrivileges": false
+      "grantFileProtocolExtraPrivileges": false,
+      "resetAdHocDarwinSignature": true
     }
   },
   "overrides": {

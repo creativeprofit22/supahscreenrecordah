@@ -38,17 +38,31 @@ let pendingScreenSourceId: string | null = null;
 /** Source name for fallback matching when ID doesn't match (e.g. OS-supplemented windows). */
 let pendingScreenSourceName: string | null = null;
 
+function writeCrashLog(label: string, error: unknown): void {
+  try {
+    const stack = error instanceof Error ? error.stack ?? error.message : String(error);
+    const report = `${new Date().toISOString()} ${label}\n${stack}\n\n`;
+    const crashFile = path.join(app.getPath('userData'), `crash-${Date.now()}.log`);
+    fs.writeFileSync(crashFile, report);
+  } catch {
+    // best-effort — don't throw inside crash handler
+  }
+}
+
 process.on('uncaughtException', (error: Error) => {
   console.error('Uncaught exception:', error);
-  // Give time for the error to be logged, then exit
-  // Exit code 1 indicates abnormal termination
+  writeCrashLog('Uncaught Exception', error);
+  if (app.isReady()) {
+    const { dialog } = require('electron') as typeof import('electron');
+    const stack = error.stack ?? `${error.name}: ${error.message}`;
+    dialog.showErrorBox('Unexpected Error', `The app encountered an error and needs to close.\n\n${stack}`);
+  }
   app.exit(1);
 });
 
 process.on('unhandledRejection', (reason: unknown) => {
   console.error('Unhandled rejection:', reason);
-  // Give time for the error to be logged, then exit
-  // Exit code 1 indicates abnormal termination
+  writeCrashLog('Unhandled Rejection', reason);
   app.exit(1);
 });
 
