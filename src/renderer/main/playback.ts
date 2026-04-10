@@ -19,7 +19,7 @@ import {
   bulkRemoveSilences, bulkRemoveFillers, bulkRemoveSilencesAndFillers,
   trimTail, trimHead, undoAll, getTrimIn, getTrimOut,
 } from './review/review-controller';
-import { getCaptionYFraction, getCaptionXFraction, getCaptionScale } from './review/caption-preview';
+import { getCaptionYFraction, getCaptionXFraction, getCaptionScale, getCaptionHighlightColor } from './review/caption-preview';
 import type { PauseTimestamp } from '../../shared/types';
 
 // ---------------------------------------------------------------------------
@@ -244,6 +244,7 @@ export function initPlaybackHandlers(): void {
             yFraction: getCaptionYFraction(),
             xFraction: getCaptionXFraction(),
             scale: getCaptionScale(),
+            highlightColor: getCaptionHighlightColor() ?? undefined,
           } : undefined;
 
           processingSub.textContent = selectedCaptionStyle

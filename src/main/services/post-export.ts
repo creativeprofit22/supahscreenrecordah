@@ -41,7 +41,7 @@ export function buildCaptionOptions(config: CaptionConfig, aspectRatio: AspectRa
   };
 
   switch (config.style) {
-    case 'minimal':
+    case 'clean':
       options.style = {
         font: 'Arial',
         size: config.fontSize,
@@ -55,9 +55,9 @@ export function buildCaptionOptions(config: CaptionConfig, aspectRatio: AspectRa
       options.position = 'bottom';
       break;
 
-    case 'bold':
+    case 'spotlight':
       options.style = {
-        font: 'Arial',
+        font: 'Montserrat',
         size: Math.round(config.fontSize * 1.3),
         color: '&HFFFFFF&',
         outlineColor: '&H000000&',
@@ -69,28 +69,28 @@ export function buildCaptionOptions(config: CaptionConfig, aspectRatio: AspectRa
       options.position = 'center';
       break;
 
-    case 'viral':
-    case 'mrbeast':
+    case 'electric':
+    case 'knockout':
       // Power word colorization enabled, center-positioned, heavy outline
       options.style = {
-        font: 'Arial',
-        size: Math.round(config.fontSize * (config.style === 'mrbeast' ? 1.4 : 1.2)),
+        font: 'Impact',
+        size: Math.round(config.fontSize * (config.style === 'knockout' ? 1.4 : 1.2)),
         color: '&HFFFFFF&',
         outlineColor: '&H000000&',
         bold: true,
-        outlineWidth: config.style === 'mrbeast' ? 7 : 5,
-        shadowDepth: config.style === 'mrbeast' ? 3 : 2,
+        outlineWidth: config.style === 'knockout' ? 7 : 5,
+        shadowDepth: config.style === 'knockout' ? 3 : 2,
         alignment: 5, // center
       };
       options.position = 'center';
-      options.maxWordsPerGroup = config.style === 'mrbeast' ? 2 : 4;
+      options.maxWordsPerGroup = config.style === 'knockout' ? 2 : 4;
       // Always enable power words
       options.powerWords = undefined; // uses built-in POWER_WORDS
       break;
 
-    case 'youtube-shorts':
+    case 'candy':
       options.style = {
-        font: 'Arial',
+        font: 'Impact',
         size: Math.round(config.fontSize * 1.3),
         color: '&HFFFFFF&',
         outlineColor: '&H000000&',
@@ -103,7 +103,7 @@ export function buildCaptionOptions(config: CaptionConfig, aspectRatio: AspectRa
       options.maxWordsPerGroup = 3;
       break;
 
-    case 'tiktok':
+    case 'flow':
       options.style = {
         font: 'Arial',
         size: Math.round(config.fontSize * 1.1),

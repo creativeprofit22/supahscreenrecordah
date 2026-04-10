@@ -57,6 +57,8 @@ export interface CaptionOptions {
   resolution?: { width: number; height: number };
   /** When set, each dialogue line gets a \pos(x,y) override for precise positioning */
   posOverride?: { x: number; y: number };
+  /** Highlight color for active word (ASS BGR format &HBBGGRR&). When set, emits per-word Dialogue lines. */
+  highlightColor?: string;
 }
 
 const DEFAULT_STYLE: CaptionStyle = {
@@ -232,22 +234,52 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   // Group words and generate dialogue lines
   const groups = groupWords(words, maxWordsPerGroup);
   const lines: string[] = [];
+  const highlightColor = options.highlightColor;
 
-  for (const group of groups) {
-    const colorized = group.words
-      .map((w) => colorizeWord(w.text, allPowerWords))
-      .join(' ');
+  const posTag = options.posOverride
+    ? `{\\pos(${options.posOverride.x},${options.posOverride.y})}`
+    : '';
 
-    const posTag = options.posOverride
-      ? `{\\pos(${options.posOverride.x},${options.posOverride.y})}`
-      : '';
-    const fadeTag = `{\\fad(${fadeInMs},${fadeOutMs})}`;
-    const text = posTag + fadeTag + colorized;
+  if (highlightColor) {
+    // Per-word highlighting: emit one Dialogue per word's time span.
+    // Each event shows the full group text, with the active word colored.
+    for (const group of groups) {
+      for (let wi = 0; wi < group.words.length; wi++) {
+        const word = group.words[wi];
+        const parts: string[] = [];
 
-    const startTime = formatTime(group.start);
-    const endTime = formatTime(group.end);
+        for (let j = 0; j < group.words.length; j++) {
+          const w = group.words[j];
+          const text = colorizeWord(w.text, allPowerWords);
+          if (j === wi) {
+            // Active word — apply highlight color
+            parts.push(`{\\c${highlightColor}}${text}{\\c${style.color}}`);
+          } else {
+            parts.push(text);
+          }
+        }
 
-    lines.push(`Dialogue: 0,${startTime},${endTime},Default,,0,0,0,,${text}`);
+        const fadeTag = `{\\fad(${fadeInMs},${fadeOutMs})}`;
+        const text = posTag + fadeTag + parts.join(' ');
+        const startTime = formatTime(word.start);
+        const endTime = formatTime(word.end);
+        lines.push(`Dialogue: 0,${startTime},${endTime},Default,,0,0,0,,${text}`);
+      }
+    }
+  } else {
+    // Standard: one Dialogue per group
+    for (const group of groups) {
+      const colorized = group.words
+        .map((w) => colorizeWord(w.text, allPowerWords))
+        .join(' ');
+
+      const fadeTag = `{\\fad(${fadeInMs},${fadeOutMs})}`;
+      const text = posTag + fadeTag + colorized;
+
+      const startTime = formatTime(group.start);
+      const endTime = formatTime(group.end);
+      lines.push(`Dialogue: 0,${startTime},${endTime},Default,,0,0,0,,${text}`);
+    }
   }
 
   return header + lines.join('\n') + '\n';

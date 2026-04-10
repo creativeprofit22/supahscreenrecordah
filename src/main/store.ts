@@ -60,7 +60,7 @@ const DEFAULT_CONFIG: AppConfig = {
     perspective: false,
     perspectiveIntensity: 2,
   },
-  caption: { enabled: false, style: 'minimal', position: 'bottom', fontSize: 24, powerWords: false },
+  caption: { enabled: false, style: 'clean', position: 'bottom', fontSize: 24, powerWords: false },
   silenceRemoval: { enabled: false, minSilenceMs: 1500, keepPaddingMs: 150, removeFillers: false },
   thumbnail: { enabled: false, platforms: [] },
   exportPlatforms: [],

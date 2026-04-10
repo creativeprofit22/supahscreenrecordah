@@ -81,43 +81,115 @@ function groupWords(words: TranscribedWord[], maxWords: number): WordGroup[] {
 // Style configs
 // ---------------------------------------------------------------------------
 
+type CaptionAnimation = 'none' | 'word-highlight' | 'karaoke' | 'bounce' | 'pop';
+
 interface StyleConfig {
   fontSize: number;       // multiplier over base
+  font: string;           // font family
   bold: boolean;
   outlineWidth: number;
   shadowBlur: number;
   maxWords: number;
   fillColor: string;
+  highlightColor: string; // color for active word
   powerWords: boolean;    // use power word colorization
   uppercase: boolean;
+  animation: CaptionAnimation;
 }
 
 const STYLE_CONFIGS: Record<CaptionStylePreset, StyleConfig> = {
-  minimal: {
-    fontSize: 1.0, bold: false, outlineWidth: 2, shadowBlur: 0,
-    maxWords: 4, fillColor: '#FFFFFF', powerWords: false, uppercase: false,
+  clean: {
+    fontSize: 1.0, font: 'Poppins, sans-serif',
+    bold: false, outlineWidth: 2, shadowBlur: 0,
+    maxWords: 4, fillColor: '#FFFFFF', highlightColor: '#FFFFFF',
+    powerWords: false, uppercase: false, animation: 'none',
   },
-  bold: {
-    fontSize: 1.3, bold: true, outlineWidth: 5, shadowBlur: 4,
-    maxWords: 4, fillColor: '#FFFFFF', powerWords: false, uppercase: true,
+  spotlight: {
+    fontSize: 1.3, font: 'Montserrat, sans-serif',
+    bold: true, outlineWidth: 5, shadowBlur: 4,
+    maxWords: 4, fillColor: '#FFFFFF', highlightColor: '#FFFF00',
+    powerWords: false, uppercase: true, animation: 'word-highlight',
   },
-  viral: {
-    fontSize: 1.3, bold: true, outlineWidth: 5, shadowBlur: 6,
-    maxWords: 3, fillColor: '#FFFFFF', powerWords: true, uppercase: true,
+  electric: {
+    fontSize: 1.3, font: 'Bangers, Impact, sans-serif',
+    bold: false, outlineWidth: 6, shadowBlur: 6,
+    maxWords: 3, fillColor: '#FFFFFF', highlightColor: '#39FF14',
+    powerWords: true, uppercase: true, animation: 'pop',
   },
-  mrbeast: {
-    fontSize: 1.5, bold: true, outlineWidth: 8, shadowBlur: 8,
-    maxWords: 2, fillColor: '#FFD700', powerWords: true, uppercase: true,
+  knockout: {
+    fontSize: 1.5, font: 'Luckiest Guy, Impact, sans-serif',
+    bold: false, outlineWidth: 8, shadowBlur: 8,
+    maxWords: 2, fillColor: '#FFFFFF', highlightColor: '#00BFFF',
+    powerWords: true, uppercase: true, animation: 'bounce',
   },
-  'youtube-shorts': {
-    fontSize: 1.3, bold: true, outlineWidth: 5, shadowBlur: 4,
-    maxWords: 3, fillColor: '#FFFFFF', powerWords: false, uppercase: true,
+  candy: {
+    fontSize: 1.3, font: 'Bangers, Impact, sans-serif',
+    bold: false, outlineWidth: 5, shadowBlur: 4,
+    maxWords: 3, fillColor: '#FFFFFF', highlightColor: '#FF1493',
+    powerWords: false, uppercase: true, animation: 'word-highlight',
   },
-  tiktok: {
-    fontSize: 1.1, bold: true, outlineWidth: 3, shadowBlur: 2,
-    maxWords: 3, fillColor: '#FFFFFF', powerWords: false, uppercase: false,
+  flow: {
+    fontSize: 1.1, font: 'Poppins, sans-serif',
+    bold: true, outlineWidth: 3, shadowBlur: 2,
+    maxWords: 3, fillColor: '#FFFFFF', highlightColor: '#FF6347',
+    powerWords: false, uppercase: false, animation: 'karaoke',
   },
 };
+
+// ---------------------------------------------------------------------------
+// Animation helpers
+// ---------------------------------------------------------------------------
+
+/** Ease-out bounce (standard 4-stage formula) */
+function easeOutBounce(t: number): number {
+  const n1 = 7.5625;
+  const d1 = 2.75;
+  if (t < 1 / d1) return n1 * t * t;
+  if (t < 2 / d1) return n1 * (t -= 1.5 / d1) * t + 0.75;
+  if (t < 2.5 / d1) return n1 * (t -= 2.25 / d1) * t + 0.9375;
+  return n1 * (t -= 2.625 / d1) * t + 0.984375;
+}
+
+/** Compute per-word animation state */
+function getWordAnimation(
+  word: TranscribedWord,
+  currentTime: number,
+  animation: CaptionAnimation,
+  groupStart: number,
+): { scale: number; offsetY: number; opacity: number } {
+  const isActive = currentTime >= word.start && currentTime < word.end;
+  const elapsed = currentTime - word.start;
+
+  switch (animation) {
+    case 'bounce': {
+      // Words bounce in when they become active
+      if (currentTime < word.start) return { scale: 0, offsetY: 20, opacity: 0 };
+      const dur = 0.3; // 300ms bounce-in
+      const t = Math.min(elapsed / dur, 1);
+      const bounced = easeOutBounce(t);
+      return {
+        scale: 0.5 + 0.5 * bounced,
+        offsetY: 20 * (1 - bounced),
+        opacity: t < 0.1 ? t / 0.1 : 1,
+      };
+    }
+    case 'pop': {
+      // Active word pops up (scale 1.2), others normal
+      if (isActive) {
+        const dur = 0.15;
+        const t = Math.min(elapsed / dur, 1);
+        return { scale: 1 + 0.2 * t, offsetY: -3 * t, opacity: 1 };
+      }
+      return { scale: 1, offsetY: 0, opacity: 1 };
+    }
+    case 'word-highlight':
+    case 'karaoke':
+    default:
+      // Active word gets slight scale bump
+      if (isActive) return { scale: 1.08, offsetY: -2, opacity: 1 };
+      return { scale: 1, offsetY: 0, opacity: 1 };
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Interactive caption state
@@ -373,6 +445,14 @@ export function getCaptionScale(): number {
   return captionScale;
 }
 
+/** Get the highlight color for the current style (for export). */
+export function getCaptionHighlightColor(): string | null {
+  if (!cachedStyle) return null;
+  const sc = STYLE_CONFIGS[cachedStyle];
+  if (!sc || sc.animation === 'none') return null;
+  return sc.highlightColor;
+}
+
 /** Reset caption state (called when exiting review). */
 export function resetCaptionPreview(): void {
   cachedGroups = [];
@@ -449,7 +529,7 @@ export function renderCaptionPreview(
     }
   }
 
-  const sc = STYLE_CONFIGS[style] || STYLE_CONFIGS.bold;
+  const sc = STYLE_CONFIGS[style] || STYLE_CONFIGS.spotlight;
 
   // Rebuild groups if words or style changed
   if (style !== cachedStyle || words.length !== cachedWordsLen) {
@@ -484,7 +564,7 @@ export function renderCaptionPreview(
   // Font size scales with video render height and user scale
   const baseFontSize = Math.round((vrDpr.h / 20) * sc.fontSize * captionScale);
   const fontWeight = sc.bold ? 'bold' : 'normal';
-  ctx.font = `${fontWeight} ${baseFontSize}px Arial, sans-serif`;
+  ctx.font = `${fontWeight} ${baseFontSize}px ${sc.font}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
@@ -515,12 +595,8 @@ export function renderCaptionPreview(
     ctx.shadowOffsetY = 2 * dpr;
   }
 
-  if (sc.powerWords) {
-    renderWordsWithColors(ctx, activeGroup, centerX, captionY, baseFontSize, sc, dpr);
-  } else {
-    const text = sc.uppercase ? activeGroup.text.toUpperCase() : activeGroup.text;
-    renderTextWithOutline(ctx, text, centerX, captionY, sc.fillColor, sc.outlineWidth * dpr * 0.6, dpr);
-  }
+  // Always render word-by-word for highlight/animation support
+  renderWordsAnimated(ctx, activeGroup, centerX, captionY, baseFontSize, sc, dpr, currentTime);
 
   // Reset shadow
   ctx.shadowColor = 'transparent';
@@ -607,7 +683,7 @@ function renderTextWithOutline(
   ctx.fillText(text, x, y);
 }
 
-function renderWordsWithColors(
+function renderWordsAnimated(
   ctx: CanvasRenderingContext2D,
   group: WordGroup,
   centerX: number,
@@ -615,8 +691,8 @@ function renderWordsWithColors(
   fontSize: number,
   sc: StyleConfig,
   dpr: number,
+  currentTime: number,
 ): void {
-  // Measure total width to center the group
   const wordTexts = group.words.map(w =>
     sc.uppercase ? w.text.toUpperCase() : w.text,
   );
@@ -630,11 +706,44 @@ function renderWordsWithColors(
   for (let i = 0; i < group.words.length; i++) {
     const word = group.words[i];
     const text = wordTexts[i];
-    const cleaned = cleanWord(word.text);
-    const powerColor = POWER_WORDS[cleaned];
-    const fillColor = powerColor || sc.fillColor;
+    const isActive = currentTime >= word.start && currentTime < word.end;
+    const isPast = currentTime >= word.end;
+
+    // Determine fill color
+    let fillColor: string;
+    if (sc.powerWords) {
+      const cleaned = cleanWord(word.text);
+      const powerColor = POWER_WORDS[cleaned];
+      fillColor = powerColor || (isActive ? sc.highlightColor : sc.fillColor);
+    } else if (sc.animation !== 'none') {
+      fillColor = isActive ? sc.highlightColor : sc.fillColor;
+    } else {
+      fillColor = sc.fillColor;
+    }
+
+    // Karaoke: past words get highlight color too (progressive fill)
+    if (sc.animation === 'karaoke' && isPast) {
+      fillColor = sc.highlightColor;
+    }
+
+    // Animation transform
+    const anim = getWordAnimation(word, currentTime, sc.animation, group.start);
+
+    if (anim.opacity <= 0) {
+      x += wordWidths[i] + spaceWidth;
+      continue;
+    }
 
     const wordX = x + wordWidths[i] / 2;
+
+    ctx.save();
+    ctx.globalAlpha = anim.opacity;
+
+    if (anim.scale !== 1 || anim.offsetY !== 0) {
+      ctx.translate(wordX, y + anim.offsetY * dpr);
+      ctx.scale(anim.scale, anim.scale);
+      ctx.translate(-wordX, -(y + anim.offsetY * dpr));
+    }
 
     // Outline
     ctx.lineWidth = outlineW;
@@ -642,11 +751,13 @@ function renderWordsWithColors(
     ctx.lineJoin = 'round';
     ctx.miterLimit = 2;
     ctx.textAlign = 'center';
-    ctx.strokeText(text, wordX, y);
+    ctx.strokeText(text, wordX, y + anim.offsetY * dpr);
 
     // Fill
     ctx.fillStyle = fillColor;
-    ctx.fillText(text, wordX, y);
+    ctx.fillText(text, wordX, y + anim.offsetY * dpr);
+
+    ctx.restore();
 
     x += wordWidths[i] + spaceWidth;
   }

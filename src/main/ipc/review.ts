@@ -137,6 +137,7 @@ export function registerReviewHandlers(): void {
         yFraction?: number;
         xFraction?: number;
         scale?: number;
+        highlightColor?: string; // hex RGB e.g. '#FFD700'
       };
     }) => {
       if (!isValidSender(event)) {
@@ -204,7 +205,7 @@ export function registerReviewHandlers(): void {
               style: captionOptions.style,
               position: 'center' as const,
               fontSize: Math.round((isVertical ? 72 : 48) * userScale),
-              powerWords: captionOptions.style === 'viral' || captionOptions.style === 'mrbeast',
+              powerWords: captionOptions.style === 'electric' || captionOptions.style === 'knockout',
             };
 
             const captionOpts = buildCaptionOptions(captionConfig, aspectRatio);
@@ -219,6 +220,15 @@ export function registerReviewHandlers(): void {
             if (captionOpts.style) {
               captionOpts.style.alignment = 5;
               captionOpts.style.marginV = 0;
+            }
+
+            // Pass highlight color for per-word coloring (convert #RRGGBB → &H00BBGGRR&)
+            if (captionOptions.highlightColor) {
+              const hex = captionOptions.highlightColor.replace('#', '');
+              const r = hex.substring(0, 2);
+              const g = hex.substring(2, 4);
+              const b = hex.substring(4, 6);
+              captionOpts.highlightColor = `&H00${b}${g}${r}&`;
             }
 
             const assContent = generateASS(adjustedCaptionWords, captionOpts);

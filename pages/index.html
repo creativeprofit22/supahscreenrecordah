@@ -6,9 +6,12 @@
     <!-- file: needed in media-src (playback.ts) and img-src (watermark.ts) — ideally migrate to app:// protocol -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; media-src 'self' blob: mediastream: file:; img-src 'self' data: blob: file:; connect-src 'self' https://cdn.jsdelivr.net https://storage.googleapis.com; object-src 'none'; base-uri 'self'; form-action 'self'"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; media-src 'self' blob: mediastream: file:; img-src 'self' data: blob: file:; connect-src 'self' https://cdn.jsdelivr.net https://storage.googleapis.com https://fonts.googleapis.com https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; form-action 'self'"
     />
     <title>supahscreenrecordah — Preview</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Montserrat:wght@800;900&family=Poppins:wght@600;700&family=Luckiest+Guy&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../dist/renderer/styles/main.css" />
   </head>
   <body>
@@ -72,29 +75,29 @@
         </div>
       </div>
       <div id="caption-style-picker" class="caption-style-picker hidden">
-        <div class="style-card" data-style="bold">
-          <span class="style-sample style-sample--bold">The quick brown fox</span>
-          <span class="style-label">Bold</span>
-        </div>
-        <div class="style-card" data-style="minimal">
+        <div class="style-card" data-style="clean">
           <span class="style-sample style-sample--clean">The quick brown fox</span>
           <span class="style-label">Clean</span>
         </div>
-        <div class="style-card" data-style="viral">
-          <span class="style-sample style-sample--viral">The quick brown fox</span>
-          <span class="style-label">Viral</span>
+        <div class="style-card" data-style="spotlight">
+          <span class="style-sample style-sample--spotlight">The quick brown fox</span>
+          <span class="style-label">Spotlight</span>
         </div>
-        <div class="style-card" data-style="mrbeast">
-          <span class="style-sample style-sample--mrbeast">The quick brown fox</span>
-          <span class="style-label">MrBeast</span>
+        <div class="style-card" data-style="electric">
+          <span class="style-sample style-sample--electric">The quick brown fox</span>
+          <span class="style-label">Electric</span>
         </div>
-        <div class="style-card" data-style="youtube-shorts">
-          <span class="style-sample style-sample--ytshorts">The quick brown fox</span>
-          <span class="style-label">YT Shorts</span>
+        <div class="style-card" data-style="knockout">
+          <span class="style-sample style-sample--knockout">The quick brown fox</span>
+          <span class="style-label">Knockout</span>
         </div>
-        <div class="style-card" data-style="tiktok">
-          <span class="style-sample style-sample--tiktok">The quick brown fox</span>
-          <span class="style-label">TikTok</span>
+        <div class="style-card" data-style="candy">
+          <span class="style-sample style-sample--candy">The quick brown fox</span>
+          <span class="style-label">Candy</span>
+        </div>
+        <div class="style-card" data-style="flow">
+          <span class="style-sample style-sample--flow">The quick brown fox</span>
+          <span class="style-label">Flow</span>
         </div>
       </div>
       <div id="review-timeline" class="review-timeline">
