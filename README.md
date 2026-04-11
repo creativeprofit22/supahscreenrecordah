@@ -125,7 +125,7 @@ npm test
 
 ## Contributing
 
-Open an issue to report a bug or request a feature. PRs are welcome — just open one against `main` and describe what you changed and why.
+Nah
 
 ---
 
