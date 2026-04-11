@@ -10,3 +10,12 @@ release/
 *.dmg
 *.snap
 *.AppImage
+
+# Video/audio files — never commit recordings
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.wav
+*.mp3

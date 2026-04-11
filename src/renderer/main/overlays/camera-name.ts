@@ -87,6 +87,9 @@ export function positionCameraName(positionSocials?: () => void): void {
   const hasCam = cameraContainer.classList.contains('active');
   if (!overlayName || !hasCam) {
     cameraName.classList.remove('active');
+    if (positionSocials) {
+      positionSocials();
+    }
     return;
   }
 

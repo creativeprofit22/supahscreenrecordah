@@ -29,7 +29,7 @@ import {
   activeSmartZoom,
   isCapturingWindow,
 } from './state';
-import { screenVideo, bgCanvas, bgCtx, previewContainer } from './dom';
+import { screenVideo, bgCanvas, bgCtx, previewContainer, cursorOverlay } from './dom';
 import { updateSmoothMouse } from './overlays/cursor';
 import { updatePreviewSpotlight } from './overlays/spotlight';
 
@@ -698,18 +698,82 @@ export function setDrawPreviewBackground(fn: () => void): void {
 // Animation loop for zoom preview (runs continuously when screen is active)
 // ---------------------------------------------------------------------------
 
-function zoomRenderLoop(): void {
-  updateSmoothMouse();
-  updateSmartZoom();
-  applyScreenZoomTransform();
-  getDrawPreviewBackground()();
+/** Position the cursor overlay on top of the screen video preview. */
+function updateCursorOverlay(): void {
+  if (!screenStream || !screenVideo.classList.contains('active')) {
+    cursorOverlay.style.display = 'none';
+    return;
+  }
 
-  // Update preview spotlight overlay position (uses relative mouse coords)
-  if (activeSpotlight) {
-    const relPos = getMouseRelativeToCaptured();
-    if (relPos) {
-      updatePreviewSpotlight(relPos.relX, relPos.relY);
+  const relPos = getMouseRelativeToCaptured();
+  if (!relPos) {
+    cursorOverlay.style.display = 'none';
+    return;
+  }
+
+  // Get the video's visual rect relative to the preview container.
+  // Use getBoundingClientRect() which accounts for CSS transforms (translateY, scale).
+  const containerRect = previewContainer.getBoundingClientRect();
+  const videoRect = screenVideo.getBoundingClientRect();
+
+  // When zoomed, clip-path crops the scaled video back to its original bounds,
+  // so the visible area is the unscaled size at the unscaled position.
+  // getBoundingClientRect() returns the scaled (pre-clip) rect, so we must
+  // use the layout dimensions instead.
+  let videoLeft: number, videoTop: number, videoW: number, videoH: number;
+
+  if (currentZoom > 1.0) {
+    videoW = screenVideo.offsetWidth;
+    videoH = screenVideo.offsetHeight;
+    videoLeft = screenVideo.offsetLeft;
+    // offsetTop gives CSS top (50% of container) — subtract half height for translateY(-50%)
+    videoTop = screenVideo.offsetTop - videoH / 2;
+  } else {
+    // No zoom: getBoundingClientRect gives accurate visual position
+    videoLeft = videoRect.left - containerRect.left;
+    videoTop = videoRect.top - containerRect.top;
+    videoW = videoRect.width;
+    videoH = videoRect.height;
+  }
+
+  // Account for zoom crop — when zoomed, the visible region is smaller
+  let visRelX = relPos.relX;
+  let visRelY = relPos.relY;
+  if (currentZoom > 1.0) {
+    const halfView = 0.5 / currentZoom;
+    const centerX = Math.max(halfView, Math.min(1 - halfView, relPos.relX));
+    const centerY = Math.max(halfView, Math.min(1 - halfView, relPos.relY));
+    visRelX = (relPos.relX - (centerX - halfView)) / (halfView * 2);
+    visRelY = (relPos.relY - (centerY - halfView)) / (halfView * 2);
+    visRelX = Math.max(0, Math.min(1, visRelX));
+    visRelY = Math.max(0, Math.min(1, visRelY));
+  }
+
+  const cx = videoLeft + visRelX * videoW;
+  const cy = videoTop + visRelY * videoH;
+
+  cursorOverlay.style.display = 'block';
+  cursorOverlay.style.left = `${Math.round(cx)}px`;
+  cursorOverlay.style.top = `${Math.round(cy)}px`;
+}
+
+function zoomRenderLoop(): void {
+  try {
+    updateSmoothMouse();
+    updateSmartZoom();
+    applyScreenZoomTransform();
+    updateCursorOverlay();
+    getDrawPreviewBackground()();
+
+    // Update preview spotlight overlay position (uses relative mouse coords)
+    if (activeSpotlight) {
+      const relPos = getMouseRelativeToCaptured();
+      if (relPos) {
+        updatePreviewSpotlight(relPos.relX, relPos.relY);
+      }
     }
+  } catch (err) {
+    console.warn('zoomRenderLoop error:', err);
   }
 
   zoomAnimFrame = requestAnimationFrame(zoomRenderLoop);
@@ -736,6 +800,7 @@ export function stopZoomLoop(): void {
     cancelAnimationFrame(zoomAnimFrame);
     zoomAnimFrame = 0;
   }
+  cursorOverlay.style.display = 'none';
   // Reset smart zoom state
   recentClicks = [];
   clusterCenter = null;

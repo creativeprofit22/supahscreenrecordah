@@ -10,7 +10,8 @@ export function getMainWindow(): BrowserWindow | null {
 export function createMainWindow(options?: { show?: boolean }): BrowserWindow {
   const shouldShow = options?.show ?? true;
 
-  const iconPath = path.join(__dirname, '..', '..', 'assets', 'icon_1024x1024.png');
+  const iconPath = path.join(__dirname, '..', '..', 'assets',
+    process.platform === 'win32' ? 'icon.ico' : 'icon_1024x1024.png');
 
   mainWindow = new BrowserWindow({
     width: 1280,

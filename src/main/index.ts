@@ -10,6 +10,7 @@ import fs from 'fs';
 import os from 'os';
 import { createMainWindow, getMainWindow } from './windows/main-window';
 import { createToolbarWindow, getToolbarWindow } from './windows/toolbar-window';
+import { createSplashWindow, dismissSplash } from './windows/splash-window';
 import {
   registerAllHandlers,
   stopUiohook,
@@ -80,12 +81,18 @@ app
 
     // Set dock icon (visible in dev mode; packaged builds use the embedded .icns)
     if (process.platform === 'darwin' && app.dock) {
-      const iconPath = path.join(__dirname, '..', '..', 'assets', 'icon_1024x1024.png');
+      const iconPath = path.join(__dirname, '..', 'assets', 'icon_1024x1024.png');
       const icon = nativeImage.createFromPath(iconPath);
       if (!icon.isEmpty()) {
         app.dock.setIcon(icon);
       }
     }
+
+    // Show splash screen immediately while app loads
+    createSplashWindow();
+
+    // Splash IPC: return app version
+    ipcMain.handle('splash:get-version', () => app.getVersion());
 
     loadConfig();
     registerAllHandlers();
@@ -157,8 +164,26 @@ app
       { useSystemPicker: false },
     );
 
-    createMainWindow();
+    // Create main + toolbar windows hidden — reveal after loaded
+    const mainWin = createMainWindow({ show: false });
     createToolbarWindow();
+
+    // Show splash for at least 3s so people can take it in,
+    // then wait for main window to finish loading before switching.
+    const splashMinTime = new Promise<void>((r) => setTimeout(r, 3000));
+    const mainLoaded = new Promise<void>((r) =>
+      mainWin.webContents.once('did-finish-load', r),
+    );
+
+    void Promise.all([splashMinTime, mainLoaded]).then(() => {
+      dismissSplash();
+      setTimeout(() => {
+        if (mainWin && !mainWin.isDestroyed()) {
+          mainWin.show();
+          mainWin.focus();
+        }
+      }, 450); // wait for splash fade-out animation
+    });
 
     // Check for crash recovery files from a previous session
     void checkForRecoveryFiles();

@@ -2,7 +2,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const preloads = ['main-preload', 'toolbar-preload', 'edit-modal-preload', 'onboarding-preload', 'thumbnail-preload'];
+const preloads = ['main-preload', 'toolbar-preload', 'edit-modal-preload', 'onboarding-preload', 'thumbnail-preload', 'splash-preload'];
 const outDir = 'dist/preload';
 
 for (const name of preloads) {

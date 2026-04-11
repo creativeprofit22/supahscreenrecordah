@@ -21,6 +21,7 @@
     "build:renderer": "node scripts/build-renderer.js",
     "build": "npm run clean && npm run build:main && npm run build:preload && npm run build:renderer",
     "postbuild": "node scripts/verify-build.js",
+    "build:icon": "node scripts/generate-icon.js",
     "dist:win": "npm run build && npx electron-builder --win --dir",
     "dist:win:installer": "npm run build && npx electron-builder --win nsis",
     "dist:mac": "npm run build && npx electron-builder --mac --dir",
@@ -40,6 +41,8 @@
     "@vitest/coverage-v8": "^4.1.0",
     "electron": "^35.0.0",
     "electron-builder": "^26.8.1",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.34.5",
     "tsdown": "^0.21.4",
     "typescript": "^5.7.0",
     "vitest": "^4.1.0"
@@ -65,8 +68,20 @@
       "node_modules/uiohook-napi/**",
       "native/**"
     ],
+    "icon": "assets/icon.ico",
     "win": {
-      "target": "dir"
+      "target": "dir",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "supahscreenrecordah"
     },
     "mac": {
       "target": "dir",

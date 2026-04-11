@@ -112,6 +112,20 @@ body {
   pointer-events: none;
 }
 
+/* ── Cursor overlay — replaces frozen OS cursor in captured stream ── */
+.cursor-overlay {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  z-index: 50;
+  pointer-events: none;
+  display: none;
+  /* Windows-style arrow cursor: white fill, black outline, drop shadow for contrast */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cfilter id='s'%3E%3CfeDropShadow dx='1' dy='1' stdDeviation='0.5' flood-opacity='0.4'/%3E%3C/filter%3E%3Cpath d='M3 2 L3 19 L7.5 14.5 L11.5 21 L14 19.5 L10 13 L16 13 Z' fill='white' stroke='black' stroke-width='1.2' stroke-linejoin='round' filter='url(%23s)'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
 /* ── Screen wrapper — invisible in normal mode, clips overflow in shorts mode ── */
 .screen-wrapper {
   display: contents;

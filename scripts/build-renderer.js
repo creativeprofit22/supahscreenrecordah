@@ -11,7 +11,7 @@ for (const f of fs.readdirSync(cssDir).filter(f => f.endsWith('.css'))) {
 }
 
 // Bundle renderers (minified)
-const renderers = ['main', 'toolbar', 'edit-modal', 'onboarding', 'thumbnail'];
+const renderers = ['main', 'toolbar', 'edit-modal', 'onboarding', 'thumbnail', 'splash'];
 for (const name of renderers) {
   execSync(
     `npx tsdown src/renderer/${name}/index.ts --format iife --out-dir dist/renderer/${name} --no-dts --minify`,

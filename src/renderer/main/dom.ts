@@ -14,6 +14,7 @@ export const bgCanvas = document.getElementById('bg-canvas') as HTMLCanvasElemen
 export const bgCtx = bgCanvas.getContext('2d')!;
 export const shortsPreviewCanvas = document.getElementById('shorts-preview-canvas') as HTMLCanvasElement;
 export const shortsPreviewCtx = shortsPreviewCanvas.getContext('2d')!;
+export const cursorOverlay = document.getElementById('cursor-overlay') as HTMLDivElement;
 export const idleState = document.getElementById('idle-state') as HTMLDivElement;
 export const previewContainer = document.querySelector('.preview-container') as HTMLDivElement;
 export const playbackContainer = document.getElementById('playback-container') as HTMLDivElement;

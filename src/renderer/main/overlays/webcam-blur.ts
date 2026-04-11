@@ -215,7 +215,6 @@ export function startPreviewBlur(
     previewCanvas = document.createElement('canvas');
     previewCanvas.style.cssText =
       'position:absolute;top:0;left:0;width:100%;height:100%;border-radius:inherit;pointer-events:none;z-index:1;';
-    container.style.position = 'relative';
     container.appendChild(previewCanvas);
   }
 

@@ -7,6 +7,7 @@ const requiredFiles = [
   'dist/preload/edit-modal-preload.js',
   'dist/preload/onboarding-preload.js',
   'dist/preload/thumbnail-preload.js',
+  'dist/preload/splash-preload.js',
   'dist/renderer/main/index.js',
   'dist/renderer/toolbar/index.js',
   'dist/renderer/edit-modal/index.js',

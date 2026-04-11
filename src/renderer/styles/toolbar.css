@@ -70,6 +70,8 @@ body {
     0 8px 32px rgba(0, 0, 0, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   -webkit-app-region: no-drag;
+  overflow: hidden;
+  max-width: 100%;
   opacity: 0;
   transform: translateY(8px);
   transition:
@@ -287,8 +289,9 @@ body {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23a6adc8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 8px center;
-  min-width: 100px;
-  max-width: 200px;
+  min-width: 80px;
+  max-width: 160px;
+  flex-shrink: 1;
   text-overflow: ellipsis;
   overflow: hidden;
   white-space: nowrap;
@@ -314,8 +317,8 @@ body {
 
 /* ── Aspect ratio select ── */
 .aspect-ratio-select {
-  min-width: 70px;
-  max-width: 90px;
+  min-width: 64px;
+  max-width: 80px;
   font-size: 12px;
   padding: 4px 22px 4px 6px;
 }

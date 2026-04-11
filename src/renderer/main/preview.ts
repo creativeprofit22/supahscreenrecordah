@@ -268,7 +268,10 @@ export async function startScreenPreview(sourceId: string, animate?: boolean, so
         width: { ideal: 3840 },
         height: { ideal: 2160 },
         frameRate: { ideal: 30 },
-      },
+        // Force cursor compositing — Windows Desktop Duplication API drops the
+        // cursor from frames when it's over the capturing window.
+        cursor: 'always',
+      } as MediaTrackConstraints & { cursor: string },
     });
     setScreenStream(stream);
 
@@ -443,6 +446,7 @@ export function handlePreviewUpdate(selection: PreviewSelection): void {
     } else if (!screenChanged) {
       // Camera toggled but screen didn't change — re-fit with animation
       fitScreenVideo();
+      positionCameraName(positionSocialsOverlay);
     }
 
     // Handle mic for waveform visualization
@@ -634,12 +638,13 @@ export function stopShortsPreviewLoop(): void {
   if (shortsPreviewRAF !== null) {
     cancelAnimationFrame(shortsPreviewRAF);
     shortsPreviewRAF = null;
+    // Restore video elements only when actually leaving shorts mode —
+    // otherwise this wipes camera positioning set by applyLayout().
+    screenWrapper.removeAttribute('style');
+    cameraContainer.removeAttribute('style');
   }
   smoothCropSx = 0;
   smoothCropSy = 0;
-  // Restore video elements
-  screenWrapper.removeAttribute('style');
-  cameraContainer.removeAttribute('style');
 }
 
 function startShortsPreviewLoop(): void {

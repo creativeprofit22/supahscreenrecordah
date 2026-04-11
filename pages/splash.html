@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' app:; style-src 'self' 'unsafe-inline' app:; img-src 'self' app: data:;" />
+  <title>supahscreenrecordah</title>
+  <style>
+    @font-face {
+      font-family: 'PixelFont';
+      src: local('Courier New'), local('Consolas'), local('monospace');
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Courier New', 'Consolas', monospace;
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+
+    .splash-container {
+      width: 400px;
+      height: 300px;
+      background: #0d0d14;
+      border: 3px solid #2a2a3e;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      box-shadow:
+        0 0 40px rgba(74, 111, 165, 0.15),
+        0 0 80px rgba(74, 111, 165, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    /* Scan lines overlay */
+    .splash-container::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 0, 0, 0.15) 2px,
+        rgba(0, 0, 0, 0.15) 4px
+      );
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* CRT glow edge */
+    .splash-container::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      background: radial-gradient(
+        ellipse at center,
+        transparent 50%,
+        rgba(0, 0, 0, 0.4) 100%
+      );
+      pointer-events: none;
+      z-index: 11;
+    }
+
+    /* --- Pixel art monitor animation (CSS only) --- */
+    .pixel-scene {
+      position: relative;
+      width: 120px;
+      height: 100px;
+      margin-bottom: 24px;
+    }
+
+    /* Monitor body */
+    .monitor {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 96px;
+      height: 64px;
+      background: #2a2a3e;
+      border: 3px solid #3a3a52;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .monitor-screen {
+      position: absolute;
+      inset: 4px;
+      background: #0a0e14;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    /* Animated code lines scrolling on screen */
+    .screen-lines {
+      position: absolute;
+      top: 0;
+      left: 6px;
+      right: 6px;
+      animation: scrollCode 4s linear infinite;
+    }
+
+    .screen-line {
+      height: 3px;
+      margin: 4px 0;
+      border-radius: 1px;
+      opacity: 0.7;
+    }
+
+    .screen-line:nth-child(1)  { width: 60%; background: #3b5998; }
+    .screen-line:nth-child(2)  { width: 45%; background: #2e4a7a; }
+    .screen-line:nth-child(3)  { width: 80%; background: #3b5998; }
+    .screen-line:nth-child(4)  { width: 35%; background: #2e4a7a; }
+    .screen-line:nth-child(5)  { width: 55%; background: #3b5998; }
+    .screen-line:nth-child(6)  { width: 70%; background: #2e4a7a; }
+    .screen-line:nth-child(7)  { width: 40%; background: #3b5998; }
+    .screen-line:nth-child(8)  { width: 65%; background: #2e4a7a; }
+    .screen-line:nth-child(9)  { width: 50%; background: #3b5998; }
+    .screen-line:nth-child(10) { width: 75%; background: #2e4a7a; }
+
+    @keyframes scrollCode {
+      0%   { transform: translateY(0); }
+      100% { transform: translateY(-35px); }
+    }
+
+    /* REC dot blinking */
+    .rec-dot {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      width: 7px;
+      height: 7px;
+      background: #ff2d2d;
+      border-radius: 50%;
+      animation: recBlink 1s ease-in-out infinite;
+      box-shadow: 0 0 6px rgba(255, 45, 45, 0.6);
+      z-index: 2;
+    }
+
+    @keyframes recBlink {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.3; }
+    }
+
+    /* Camera on top */
+    .camera {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 28px;
+      height: 16px;
+      background: #3a3a52;
+      border-radius: 3px 3px 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .camera-lens {
+      width: 10px;
+      height: 10px;
+      background: #1a1a2e;
+      border-radius: 50%;
+      border: 2px solid #4a6fa5;
+      position: relative;
+    }
+
+    .camera-lens::after {
+      content: '';
+      position: absolute;
+      top: 1px;
+      left: 1px;
+      width: 3px;
+      height: 3px;
+      background: #6a9fd5;
+      border-radius: 50%;
+    }
+
+    /* Stand */
+    .stand-neck {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 12px;
+      height: 10px;
+      background: #2a2a3e;
+    }
+
+    .stand-base {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 40px;
+      height: 8px;
+      background: linear-gradient(to bottom, #3a3a52, #2a2a3e);
+      border-radius: 2px;
+    }
+
+    /* --- Text --- */
+    .app-name {
+      font-size: 18px;
+      font-weight: bold;
+      color: #c8d0e0;
+      letter-spacing: 2px;
+      text-transform: lowercase;
+      margin-bottom: 20px;
+      text-shadow: 0 0 10px rgba(74, 111, 165, 0.3);
+    }
+
+    /* --- Loading bar --- */
+    .loading-bar-container {
+      width: 200px;
+      height: 8px;
+      background: #1a1a2e;
+      border: 1px solid #2a2a3e;
+      border-radius: 2px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .loading-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #4a6fa5, #6a9fd5);
+      border-radius: 1px;
+      animation: loadFill 3.2s ease-out forwards;
+      position: relative;
+    }
+
+    .loading-bar-fill::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 20px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15));
+    }
+
+    /* Shimmer effect on load bar */
+    .loading-bar-shimmer {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.08) 40%,
+        rgba(255, 255, 255, 0.12) 50%,
+        rgba(255, 255, 255, 0.08) 60%,
+        transparent 100%
+      );
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    @keyframes loadFill {
+      0%   { width: 0%; }
+      20%  { width: 30%; }
+      50%  { width: 55%; }
+      75%  { width: 80%; }
+      100% { width: 95%; }
+    }
+
+    .loading-text {
+      margin-top: 10px;
+      font-size: 10px;
+      color: #4a5568;
+      letter-spacing: 1px;
+      animation: loadingDots 1.5s steps(4) infinite;
+    }
+
+    @keyframes loadingDots {
+      0%   { content: 'LOADING'; }
+      25%  { content: 'LOADING.'; }
+      50%  { content: 'LOADING..'; }
+      75%  { content: 'LOADING...'; }
+    }
+
+    /* Version tag */
+    .version {
+      position: absolute;
+      bottom: 12px;
+      right: 16px;
+      font-size: 9px;
+      color: #2a2a3e;
+      z-index: 12;
+    }
+
+    /* Fade out when app is ready */
+    .splash-container.fade-out {
+      animation: fadeOut 0.4s ease-out forwards;
+    }
+
+    @keyframes fadeOut {
+      0%   { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(0.95); }
+    }
+  </style>
+</head>
+<body>
+  <div class="splash-container" id="splash">
+    <div class="pixel-scene">
+      <!-- Camera on top -->
+      <div class="camera">
+        <div class="camera-lens"></div>
+      </div>
+
+      <!-- Monitor -->
+      <div class="monitor">
+        <div class="monitor-screen">
+          <!-- Animated code lines -->
+          <div class="screen-lines">
+            <div class="screen-line"></div>
+            <div class="screen-line"></div>
+            <div class="screen-line"></div>
+            <div class="screen-line"></div>
+            <div class="screen-line"></div>
+            <div class="screen-line"></div>
+            <div class="screen-line"></div>
+            <div class="screen-line"></div>
+            <div class="screen-line"></div>
+            <div class="screen-line"></div>
+          </div>
+          <!-- Blinking REC dot -->
+          <div class="rec-dot"></div>
+        </div>
+      </div>
+
+      <!-- Stand -->
+      <div class="stand-neck"></div>
+      <div class="stand-base"></div>
+    </div>
+
+    <div class="app-name">supahscreenrecordah</div>
+
+    <div class="loading-bar-container">
+      <div class="loading-bar-fill"></div>
+      <div class="loading-bar-shimmer"></div>
+    </div>
+
+    <div class="loading-text" id="loadingText">INITIALIZING...</div>
+
+    <div class="version" id="versionText"></div>
+  </div>
+
+  <script src="../dist/renderer/splash/index.js"></script>
+</body>
+</html>

@@ -11,7 +11,7 @@ export function createToolbarWindow(): BrowserWindow {
   const display = screen.getPrimaryDisplay();
   const { x: waX, y: waY, width: waWidth, height: waHeight } = display.workArea;
 
-  const windowWidth = 900;
+  const windowWidth = 960;
   const windowHeight = 72;
 
   toolbarWindow = new BrowserWindow({
