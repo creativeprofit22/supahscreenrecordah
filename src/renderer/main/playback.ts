@@ -9,17 +9,20 @@ import {
   previewContainer,
   autoTrimBtn, undoAllBtn,
   captionToggleBtn, captionStylePicker,
+  captionEditBtn,
   srtToggleLabel, srtExportCheckbox,
 } from './dom';
 import { startZoomLoop } from './zoom';
 import { startWaveformCapture, getSavedMicDeviceIdForRestart, clearSavedMicDeviceIdForRestart } from './overlays/waveform';
 import { getPauseCutPoints } from './recording';
+import { isCaptionEditorOpen } from './review/caption-editor';
 import {
   initReview, destroyReview, getReviewSegments, getReviewWords,
   bulkRemoveSilences, bulkRemoveFillers, bulkRemoveSilencesAndFillers,
   trimTail, trimHead, undoAll, getTrimIn, getTrimOut,
 } from './review/review-controller';
-import { getCaptionYFraction, getCaptionXFraction, getCaptionScale, getCaptionHighlightColor } from './review/caption-preview';
+import { getCaptionYFraction, getCaptionXFraction, getCaptionScale, getCaptionHighlightColor, invalidateCaptionCache } from './review/caption-preview';
+import { openCaptionEditor, closeCaptionEditor, initCaptionEditorListeners } from './review/caption-editor';
 import type { PauseTimestamp } from '../../shared/types';
 
 // ---------------------------------------------------------------------------
@@ -145,7 +148,9 @@ export function exitPlaybackMode(): void {
 
   pendingRecordingBlob = null;
   selectedCaptionStyle = null;
+  closeCaptionEditor();
   captionToggleBtn.classList.remove('active');
+  captionEditBtn.classList.add('hidden');
   captionStylePicker.classList.add('hidden');
   captionStylePicker.querySelectorAll('.style-card').forEach(c => c.classList.remove('active'));
   srtToggleLabel.classList.add('hidden');
@@ -338,6 +343,7 @@ export function initPlaybackHandlers(): void {
       selectedCaptionStyle = null;
       card.classList.remove('active');
       captionToggleBtn.classList.remove('active');
+      captionEditBtn.classList.add('hidden');
       srtToggleLabel.classList.add('hidden');
     } else {
       // Select new style
@@ -345,8 +351,23 @@ export function initPlaybackHandlers(): void {
       card.classList.add('active');
       selectedCaptionStyle = style;
       captionToggleBtn.classList.add('active');
+      captionEditBtn.classList.remove('hidden');
       srtToggleLabel.classList.remove('hidden');
     }
+  });
+
+  // --- Caption editor -------------------------------------------------------
+  initCaptionEditorListeners();
+
+  captionEditBtn.addEventListener('click', () => {
+    const words = getReviewWords();
+    if (words.length === 0) return;
+    openCaptionEditor(
+      words,
+      (time) => { playbackVideo.currentTime = time; },
+      () => { invalidateCaptionCache(); },
+      () => playbackVideo.currentTime,
+    );
   });
 
   // --- Skip button — export original blob without review cuts ----------------
@@ -358,9 +379,10 @@ export function initPlaybackHandlers(): void {
   document.addEventListener('keydown', (e) => {
     if (playbackContainer.classList.contains('hidden')) return;
 
-    // Don't capture shortcuts when focused on input elements
+    // Don't capture shortcuts when focused on input elements or editor is open
     const tag = (e.target as HTMLElement)?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (isCaptionEditorOpen()) return;
 
     switch (e.key) {
       case ' ':

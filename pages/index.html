@@ -70,6 +70,7 @@
         <div class="review-actions-spacer"></div>
         <div class="caption-controls">
           <button id="caption-toggle-btn" class="playback-btn playback-btn--caption">CC</button>
+          <button id="caption-edit-btn" class="playback-btn playback-btn--caption-edit hidden">Edit</button>
           <label class="srt-toggle hidden" id="srt-toggle-label">
             <input type="checkbox" id="srt-export-checkbox" />
             <span>.srt</span>
@@ -115,6 +116,17 @@
         <button id="playback-skip-btn" class="playback-btn playback-btn--skip">Skip</button>
         <button id="playback-exit-btn" class="playback-btn playback-btn--exit">Exit</button>
         <button id="playback-export-btn" class="playback-btn playback-btn--export">Export</button>
+      </div>
+
+      <!-- Caption editor modal -->
+      <div id="caption-editor-modal" class="caption-editor-modal hidden">
+        <div class="caption-editor-panel">
+          <div class="caption-editor-header">
+            <span class="caption-editor-title">Edit Captions</span>
+            <button id="caption-editor-close" class="caption-editor-close">&times;</button>
+          </div>
+          <div id="caption-editor-list" class="caption-editor-list"></div>
+        </div>
       </div>
     </div>
 

@@ -1013,6 +1013,139 @@ body {
   cursor: pointer;
 }
 
+/* Caption edit button */
+.playback-btn--caption-edit {
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  padding: 8px 12px;
+}
+
+.playback-btn--caption-edit.hidden {
+  display: none;
+}
+
+/* Caption editor modal */
+.caption-editor-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.caption-editor-modal.hidden {
+  display: none;
+}
+
+.caption-editor-panel {
+  width: 560px;
+  max-width: 90%;
+  max-height: 80%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border: 1px solid #45475a;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.caption-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid #45475a;
+  flex-shrink: 0;
+}
+
+.caption-editor-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.caption-editor-close {
+  background: none;
+  border: none;
+  color: #6c7086;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.caption-editor-close:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+
+.caption-editor-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  scrollbar-width: thin;
+  scrollbar-color: #45475a transparent;
+}
+
+.caption-editor-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 18px;
+  transition: background 0.1s;
+}
+
+.caption-editor-row:hover {
+  background: rgba(205, 214, 244, 0.03);
+}
+
+.caption-editor-row.active {
+  background: rgba(203, 166, 247, 0.08);
+}
+
+.caption-editor-ts {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-family: 'Courier New', Courier, monospace;
+  color: #6c7086;
+  padding-top: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: color 0.15s;
+}
+
+.caption-editor-ts:hover {
+  color: #89b4fa;
+}
+
+.caption-editor-input {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  padding: 6px 10px;
+  line-height: 1.4;
+  resize: none;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.caption-editor-input:focus {
+  outline: none;
+  border-color: #cba6f7;
+}
+
 /* Auto-trim dropdown menu */
 .auto-trim-dropdown {
   position: absolute;

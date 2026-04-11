@@ -453,6 +453,12 @@ export function getCaptionHighlightColor(): string | null {
   return sc.highlightColor;
 }
 
+/** Invalidate cached word groups so preview re-reads edited text. */
+export function invalidateCaptionCache(): void {
+  cachedGroups = [];
+  cachedWordsLen = 0;
+}
+
 /** Reset caption state (called when exiting review). */
 export function resetCaptionPreview(): void {
   cachedGroups = [];

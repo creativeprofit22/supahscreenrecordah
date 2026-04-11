@@ -145,11 +145,14 @@ export function burnSubtitles(
   assPath: string,
   outputPath: string,
 ): Promise<{ success: boolean; stderr: string }> {
-  // Escape path for FFmpeg's ass= filter: forward slashes avoid backslash issues,
-  // colons (drive letter) need \: so FFmpeg doesn't parse them as option separators
-  const escapedAssPath = assPath
+  // Escape path for FFmpeg's ass= filter:
+  // 1. Forward slashes avoid backslash interpretation issues
+  // 2. Colons (drive letter) need \: so FFmpeg doesn't parse them as option separators
+  // 3. Wrap in single quotes so spaces and other special chars in the path are safe
+  const escapedAssPath = "'" + assPath
     .replace(/\\/g, '/')
-    .replace(/:/g, '\\:');
+    .replace(/:/g, '\\:')
+    .replace(/'/g, "'\\''") + "'";
 
   return new Promise((resolve) => {
     execFile(
