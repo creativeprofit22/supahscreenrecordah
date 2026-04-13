@@ -5,7 +5,7 @@ export interface ReviewSegment {
   id: string;
   start: number; // seconds
   end: number; // seconds
-  type: 'silence' | 'filler' | 'speech';
+  type: 'silence' | 'filler' | 'speech' | 'manual';
   enabled: boolean; // true = keep, false = cut
 }
 

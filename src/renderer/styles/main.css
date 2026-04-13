@@ -800,6 +800,25 @@ body {
   border: 1px solid rgba(243, 139, 168, 0.6);
 }
 
+.zoom-indicator {
+  margin-left: auto;
+  padding: 1px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--blue);
+  background: rgba(137, 220, 235, 0.12);
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+.zoom-indicator:hover {
+  background: rgba(137, 220, 235, 0.25);
+}
+.zoom-indicator.hidden {
+  display: none;
+}
+
 .legend-hint {
   margin-left: auto;
   color: var(--overlay);
@@ -841,6 +860,20 @@ body {
 .playback-btn--auto-trim .dropdown-arrow {
   margin-left: 4px;
   font-size: 12px;
+}
+
+.playback-btn--undo,
+.playback-btn--redo {
+  background: var(--overlay);
+  color: var(--text);
+  font-size: 16px;
+  padding: 6px 10px;
+  min-width: 0;
+}
+.playback-btn--undo:disabled,
+.playback-btn--redo:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 .playback-btn--undo-all {

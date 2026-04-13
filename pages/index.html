@@ -65,6 +65,8 @@
         <canvas id="caption-overlay" class="caption-overlay"></canvas>
       </div>
       <div id="review-actions-bar" class="review-actions-bar">
+        <button id="undo-btn" class="playback-btn playback-btn--undo" disabled title="Undo (Ctrl+Z)">&#x21A9;</button>
+        <button id="redo-btn" class="playback-btn playback-btn--redo" disabled title="Redo (Ctrl+Shift+Z)">&#x21AA;</button>
         <button id="auto-trim-btn" class="playback-btn playback-btn--auto-trim">Auto-trim <span class="dropdown-arrow">▾</span></button>
         <button id="undo-all-btn" class="playback-btn playback-btn--undo-all">Undo All</button>
         <div class="review-actions-spacer"></div>
@@ -108,7 +110,8 @@
           <span class="legend-item"><span class="legend-swatch legend-swatch--silence"></span>Silence</span>
           <span class="legend-item"><span class="legend-swatch legend-swatch--filler"></span>Filler</span>
           <span class="legend-item"><span class="legend-swatch legend-swatch--cut"></span>Will be cut</span>
-          <span class="legend-hint">Click segment to toggle &middot; Drag edges to adjust</span>
+          <span id="zoom-indicator" class="zoom-indicator hidden" title="Click to reset zoom"></span>
+          <span class="legend-hint">Click to toggle &middot; Right-click to dismiss &middot; Ctrl+scroll to zoom</span>
         </div>
         <canvas id="timeline-canvas" class="timeline-canvas"></canvas>
       </div>

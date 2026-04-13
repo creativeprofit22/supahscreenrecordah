@@ -19,7 +19,8 @@ import { isCaptionEditorOpen } from './review/caption-editor';
 import {
   initReview, destroyReview, getReviewSegments, getReviewWords,
   bulkRemoveSilences, bulkRemoveFillers, bulkRemoveSilencesAndFillers,
-  trimTail, trimHead, undoAll, getTrimIn, getTrimOut,
+  trimTail, trimHead, undoAll, getTrimIn, getTrimOut, resetZoom,
+  undo, redo,
 } from './review/review-controller';
 import { getCaptionYFraction, getCaptionXFraction, getCaptionScale, getCaptionHighlightColor, invalidateCaptionCache } from './review/caption-preview';
 import { openCaptionEditor, closeCaptionEditor, initCaptionEditorListeners } from './review/caption-editor';
@@ -319,6 +320,18 @@ export function initPlaybackHandlers(): void {
     undoAll();
   });
 
+  // --- Undo / Redo buttons ----------------------------------------------------
+  const undoBtn = document.getElementById('undo-btn');
+  const redoBtn = document.getElementById('redo-btn');
+  if (undoBtn) undoBtn.addEventListener('click', () => { undo(); });
+  if (redoBtn) redoBtn.addEventListener('click', () => { redo(); });
+
+  // --- Zoom indicator (click to reset zoom) ---------------------------------
+  const zoomIndicator = document.getElementById('zoom-indicator');
+  if (zoomIndicator) {
+    zoomIndicator.addEventListener('click', () => { resetZoom(); });
+  }
+
   // --- Caption toggle + style picker -----------------------------------------
   captionToggleBtn.addEventListener('click', () => {
     const isOpen = !captionStylePicker.classList.contains('hidden');
@@ -383,6 +396,23 @@ export function initPlaybackHandlers(): void {
     const tag = (e.target as HTMLElement)?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     if (isCaptionEditorOpen()) return;
+
+    // Undo / Redo
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      undo();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'Z' || (e.key === 'z' && e.shiftKey))) {
+      e.preventDefault();
+      redo();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+      e.preventDefault();
+      redo();
+      return;
+    }
 
     switch (e.key) {
       case ' ':
