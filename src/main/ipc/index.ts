@@ -15,6 +15,7 @@ import { registerThumbnailHandlers } from './thumbnail';
 import { registerExportPlatformsHandler } from './export-platforms';
 import { registerAutosaveHandlers } from './autosave';
 import { registerReviewHandlers } from './review';
+import { registerMusicHandlers } from './music';
 
 export function registerAllHandlers(): void {
   registerDeviceHandlers();
@@ -31,6 +32,7 @@ export function registerAllHandlers(): void {
   registerExportPlatformsHandler();
   registerAutosaveHandlers();
   registerReviewHandlers();
+  registerMusicHandlers();
 }
 
 // For main/index.ts backward compat:

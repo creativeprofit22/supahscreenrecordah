@@ -159,6 +159,16 @@ export interface MainAPI {
   showToolbar: () => Promise<void>;
   hasLastRecording: () => Promise<{ exists: boolean; size: number; modified: number }>;
   loadLastRecording: () => Promise<ArrayBuffer>;
+  // Music mixer
+  getMusicLibrary: () => Promise<import('./music-types').MusicLibraryData>;
+  addMusicTrack: (filePath: string) => Promise<import('./music-types').MusicTrack>;
+  removeMusicTrack: (trackId: string) => Promise<void>;
+  pickMusicFile: () => Promise<string | null>;
+  getMusicWaveform: (filePath: string) => Promise<import('./review-types').WaveformData>;
+  setLastMusicTrack: (trackId: string | null) => Promise<void>;
+  setLastMusicVolume: (volume: number) => Promise<void>;
+  mixMusicExport: (opts: import('./music-types').MusicMixOptions) => Promise<void>;
+  readFileAsBuffer: (filePath: string) => Promise<ArrayBuffer | null>;
 }
 
 // ToolbarAPI

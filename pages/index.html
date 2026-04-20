@@ -121,6 +121,50 @@
         <button id="playback-export-btn" class="playback-btn playback-btn--export">Export</button>
       </div>
 
+      <!-- Music mixer — shown after export, before final save -->
+      <div id="music-mixer" class="music-mixer hidden">
+        <div class="music-mixer-toolbar">
+          <button id="music-add-btn" class="playback-btn playback-btn--music-add">Add Music</button>
+          <span id="music-track-name" class="music-track-name">No track selected</span>
+          <div class="music-volume-control" title="Music volume (dB, scroll to nudge)">
+            <span class="music-volume-icon">&#9835;</span>
+            <input type="range" id="music-volume-slider" class="music-volume-slider" min="-60" max="6" step="0.1" value="-10.5" />
+            <input type="number" id="music-volume-db" class="music-volume-db" min="-60" max="6" step="0.5" value="-10.5" />
+            <span class="music-volume-unit">dB</span>
+            <span id="music-volume-label" class="music-volume-label">30%</span>
+          </div>
+          <div class="music-fade-controls">
+            <label class="music-fade-label">In <input type="number" id="music-fade-in" class="music-fade-input" min="0" max="10" step="0.5" value="1" />s</label>
+            <label class="music-fade-label">Out <input type="number" id="music-fade-out" class="music-fade-input" min="0" max="10" step="0.5" value="2" />s</label>
+          </div>
+          <button id="music-split-btn" class="playback-btn playback-btn--music-split" title="Split at playhead (S)">&#9986; Split</button>
+          <button id="music-auto-close-toggle" class="playback-btn playback-btn--toggle" title="When on, deleting or moving cards closes the gap">Auto-close gaps</button>
+          <div class="music-mixer-spacer"></div>
+          <button id="music-library-btn" class="playback-btn playback-btn--music-lib" title="Music Library">&#9776;</button>
+        </div>
+        <div class="music-timeline-wrapper">
+          <div class="music-track-labels">
+            <div class="music-track-label">Video</div>
+            <div class="music-track-label">Music</div>
+          </div>
+          <canvas id="music-timeline-canvas" class="music-timeline-canvas"></canvas>
+        </div>
+        <div class="music-mixer-hint">Click a card to select &middot; Drag body to reposition &middot; Drag edges to trim &middot; Split (S) cuts at playhead &middot; Delete removes selected &middot; Drag yellow line = volume &middot; Alt+click = keyframe</div>
+        <div class="music-mixer-actions">
+          <button id="music-skip-btn" class="playback-btn playback-btn--skip">Skip</button>
+          <button id="music-export-btn" class="playback-btn playback-btn--export">Export with Music</button>
+        </div>
+        <!-- Library panel (slides in from right) -->
+        <div id="music-library-panel" class="music-library-panel hidden">
+          <div class="music-library-header">
+            <span>Music Library</span>
+            <button id="music-library-close" class="music-library-close">&times;</button>
+          </div>
+          <div id="music-library-list" class="music-library-list"></div>
+          <button id="music-browse-btn" class="playback-btn playback-btn--music-browse">Browse for file...</button>
+        </div>
+      </div>
+
       <!-- Caption editor modal -->
       <div id="caption-editor-modal" class="caption-editor-modal hidden">
         <div class="caption-editor-panel">

@@ -18,10 +18,12 @@ import { getPauseCutPoints } from './recording';
 import { isCaptionEditorOpen } from './review/caption-editor';
 import {
   initReview, destroyReview, getReviewSegments, getReviewWords,
+  getReviewWaveform, getReviewDuration,
   bulkRemoveSilences, bulkRemoveFillers, bulkRemoveSilencesAndFillers,
   trimTail, trimHead, undoAll, getTrimIn, getTrimOut, resetZoom,
   undo, redo,
 } from './review/review-controller';
+import { showMusicMixer, hideMusicMixer, isMusicMixerActive, initMusicMixerHandlers } from './music/music-mixer';
 import { getCaptionYFraction, getCaptionXFraction, getCaptionScale, getCaptionHighlightColor, invalidateCaptionCache } from './review/caption-preview';
 import { openCaptionEditor, closeCaptionEditor, initCaptionEditorListeners } from './review/caption-editor';
 import type { PauseTimestamp } from '../../shared/types';
@@ -130,6 +132,7 @@ export async function enterPlaybackFromBuffer(buffer: ArrayBuffer): Promise<void
 }
 
 export function exitPlaybackMode(): void {
+  hideMusicMixer();
   destroyReview();
   playbackVideo.pause();
 
@@ -178,6 +181,8 @@ export function exitPlaybackMode(): void {
 // ---------------------------------------------------------------------------
 
 export function initPlaybackHandlers(): void {
+  initMusicMixerHandlers();
+
   playbackExportBtn.addEventListener('click', () => {
     void (async () => {
       if (!pendingRecordingBlob) {
@@ -268,6 +273,65 @@ export function initPlaybackHandlers(): void {
         }
 
         console.log('[rec] Export complete:', filePath);
+
+        // Transition to music mixer — load the exported file so user sees the final video
+        processingOverlay.classList.add('hidden');
+        playbackContainer.classList.remove('hidden');
+
+        // Hide review UI, show music mixer
+        const reviewActionsBar = document.getElementById('review-actions-bar');
+        const captionPicker = document.getElementById('caption-style-picker');
+        const reviewTimeline = document.getElementById('review-timeline');
+        if (reviewActionsBar) reviewActionsBar.classList.remove('visible');
+        if (captionPicker) captionPicker.classList.add('hidden');
+        if (reviewTimeline) reviewTimeline.classList.remove('visible', 'slide-up');
+
+        // Swap video source to the exported file (with cuts + captions applied)
+        // Read via IPC to bypass CSP restrictions on file:// URLs
+        if (playbackBlobUrl) {
+          URL.revokeObjectURL(playbackBlobUrl);
+          playbackBlobUrl = null;
+        }
+        const exportedBuffer = await window.mainAPI.readFileAsBuffer(filePath);
+        if (exportedBuffer) {
+          const exportedBlob = new Blob([exportedBuffer], { type: 'video/mp4' });
+          playbackBlobUrl = URL.createObjectURL(exportedBlob);
+          playbackVideo.src = playbackBlobUrl;
+          // Wait for metadata (which is what populates .duration) — loadeddata is
+          // not enough: it only guarantees the first frame, not the duration.
+          await new Promise<void>((resolve) => {
+            const onReady = (): void => {
+              playbackVideo.removeEventListener('loadedmetadata', onReady);
+              playbackVideo.removeEventListener('loadeddata', onReady);
+              playbackVideo.removeEventListener('error', onReady);
+              resolve();
+            };
+            playbackVideo.addEventListener('loadedmetadata', onReady);
+            playbackVideo.addEventListener('loadeddata', onReady);
+            playbackVideo.addEventListener('error', onReady);
+            playbackVideo.load();
+          });
+        }
+
+        // Get a fresh waveform from the exported file — its duration field comes
+        // straight from ffprobe on disk, which is more reliable than the
+        // <video>'s .duration for just-written MP4s (sometimes NaN/Infinity).
+        const exportedWf = await window.mainAPI.getMusicWaveform(filePath);
+
+        let exportedDuration = playbackVideo.duration;
+        if (!Number.isFinite(exportedDuration) || exportedDuration <= 0) {
+          exportedDuration = exportedWf.duration;
+        }
+        if (!Number.isFinite(exportedDuration) || exportedDuration <= 0) {
+          exportedDuration = 0;
+        }
+        console.log('[rec] Exported video duration (video.duration=%o, waveform.duration=%o, used=%o)',
+          playbackVideo.duration, exportedWf.duration, exportedDuration);
+
+        await showMusicMixer(filePath, exportedWf, exportedDuration, () => {
+          exitPlaybackMode();
+        });
+        return;
       } catch (err) {
         console.error('Failed to export recording:', err);
       }
@@ -397,21 +461,23 @@ export function initPlaybackHandlers(): void {
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     if (isCaptionEditorOpen()) return;
 
-    // Undo / Redo
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-      e.preventDefault();
-      undo();
-      return;
-    }
-    if ((e.ctrlKey || e.metaKey) && (e.key === 'Z' || (e.key === 'z' && e.shiftKey))) {
-      e.preventDefault();
-      redo();
-      return;
-    }
-    if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
-      e.preventDefault();
-      redo();
-      return;
+    // Undo / Redo (only in review mode, not music mixer)
+    if (!isMusicMixerActive()) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'Z' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        redo();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        redo();
+        return;
+      }
     }
 
     switch (e.key) {

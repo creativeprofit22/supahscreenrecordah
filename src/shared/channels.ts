@@ -93,4 +93,14 @@ export const Channels = {
   TOOLBAR_SHOW: 'toolbar:show',
   PLAYBACK_HAS_LAST_RECORDING: 'playback:has-last-recording',
   PLAYBACK_LOAD_LAST_RECORDING: 'playback:load-last-recording',
+  // Music mixer
+  MUSIC_GET_LIBRARY: 'music:get-library',
+  MUSIC_ADD_TRACK: 'music:add-track',
+  MUSIC_REMOVE_TRACK: 'music:remove-track',
+  MUSIC_PICK_FILE: 'music:pick-file',
+  MUSIC_GET_WAVEFORM: 'music:get-waveform',
+  MUSIC_SET_LAST_TRACK: 'music:set-last-track',
+  MUSIC_SET_LAST_VOLUME: 'music:set-last-volume',
+  MUSIC_MIX_EXPORT: 'music:mix-export',
+  MUSIC_READ_FILE: 'music:read-file',
 } as const;

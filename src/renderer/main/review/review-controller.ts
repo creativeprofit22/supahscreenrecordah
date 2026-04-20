@@ -202,6 +202,16 @@ export function getReviewSegments(): ReviewSegment[] {
   return state?.segments ?? [];
 }
 
+/** Returns the video waveform (for reuse in music mixer). */
+export function getReviewWaveform(): import('../../../shared/review-types').WaveformData {
+  return state?.waveform ?? { samples: [], duration: 0 };
+}
+
+/** Returns the video duration from analysis. */
+export function getReviewDuration(): number {
+  return state?.duration ?? 0;
+}
+
 /** Returns the transcribed words from analysis (for captions). */
 export function getReviewWords(): import('../../../shared/review-types').ReviewState['words'] {
   return state?.words ?? [];

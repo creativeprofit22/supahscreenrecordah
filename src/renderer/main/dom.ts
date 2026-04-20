@@ -41,3 +41,24 @@ export const captionEditorList = document.getElementById('caption-editor-list') 
 export const processingOverlay = document.getElementById('processing-overlay') as HTMLDivElement;
 export const processingSub = document.getElementById('processing-sub') as HTMLDivElement;
 export const ctaPopup = document.getElementById('cta-popup') as HTMLDivElement;
+
+// Music mixer
+export const musicMixer = document.getElementById('music-mixer') as HTMLDivElement;
+export const musicAddBtn = document.getElementById('music-add-btn') as HTMLButtonElement;
+export const musicTrackNameEl = document.getElementById('music-track-name') as HTMLSpanElement;
+export const musicVolumeSlider = document.getElementById('music-volume-slider') as HTMLInputElement;
+export const musicVolumeDbInput = document.getElementById('music-volume-db') as HTMLInputElement;
+export const musicVolumeLabel = document.getElementById('music-volume-label') as HTMLSpanElement;
+export const musicFadeInInput = document.getElementById('music-fade-in') as HTMLInputElement;
+export const musicFadeOutInput = document.getElementById('music-fade-out') as HTMLInputElement;
+export const musicLibraryBtn = document.getElementById('music-library-btn') as HTMLButtonElement;
+export const musicSplitBtn = document.getElementById('music-split-btn') as HTMLButtonElement;
+export const musicAutoCloseToggle = document.getElementById('music-auto-close-toggle') as HTMLButtonElement;
+export const musicTimelineCanvas = document.getElementById('music-timeline-canvas') as HTMLCanvasElement;
+export const musicTimelineCtx = musicTimelineCanvas.getContext('2d')!;
+export const musicSkipBtn = document.getElementById('music-skip-btn') as HTMLButtonElement;
+export const musicExportBtn = document.getElementById('music-export-btn') as HTMLButtonElement;
+export const musicLibraryPanel = document.getElementById('music-library-panel') as HTMLDivElement;
+export const musicLibraryList = document.getElementById('music-library-list') as HTMLDivElement;
+export const musicLibraryClose = document.getElementById('music-library-close') as HTMLButtonElement;
+export const musicBrowseBtn = document.getElementById('music-browse-btn') as HTMLButtonElement;

@@ -157,6 +157,17 @@ const mainAPI: MainAPI = {
 
   hasLastRecording: () => ipcRenderer.invoke(Channels.PLAYBACK_HAS_LAST_RECORDING),
   loadLastRecording: () => ipcRenderer.invoke(Channels.PLAYBACK_LOAD_LAST_RECORDING),
+
+  // Music mixer
+  getMusicLibrary: () => ipcRenderer.invoke(Channels.MUSIC_GET_LIBRARY),
+  addMusicTrack: (filePath: string) => ipcRenderer.invoke(Channels.MUSIC_ADD_TRACK, filePath),
+  removeMusicTrack: (trackId: string) => ipcRenderer.invoke(Channels.MUSIC_REMOVE_TRACK, trackId),
+  pickMusicFile: () => ipcRenderer.invoke(Channels.MUSIC_PICK_FILE),
+  getMusicWaveform: (filePath: string) => ipcRenderer.invoke(Channels.MUSIC_GET_WAVEFORM, filePath),
+  setLastMusicTrack: (trackId: string | null) => ipcRenderer.invoke(Channels.MUSIC_SET_LAST_TRACK, trackId),
+  setLastMusicVolume: (volume: number) => ipcRenderer.invoke(Channels.MUSIC_SET_LAST_VOLUME, volume),
+  mixMusicExport: (opts) => ipcRenderer.invoke(Channels.MUSIC_MIX_EXPORT, opts),
+  readFileAsBuffer: (filePath: string) => ipcRenderer.invoke(Channels.MUSIC_READ_FILE, filePath),
 };
 
 contextBridge.exposeInMainWorld('mainAPI', mainAPI);

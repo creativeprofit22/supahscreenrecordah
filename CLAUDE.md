@@ -3,7 +3,7 @@
 macOS/Windows desktop screen + camera recorder built with Electron & TypeScript.
 
 ## Current Focus
-**Phase:** Post-Recording Review Screen — Polish & Remaining Features
+**Phase:** Post-Recording Review Screen — Music Mixer & Timeline Polish
 
 **Done:**
 - Whisper.cpp integration (binary auto-install at startup, word-level transcription)
@@ -18,13 +18,34 @@ macOS/Windows desktop screen + camera recorder built with Electron & TypeScript.
 - Trailing-ellipsis filler detection ("to...", "I'm...", etc.)
 - Word duration clamping (0.9s max) to expose hidden silences
 - Short speech gap bridging (<0.8s) between adjacent non-speech segments
-
 - Smoother export cuts: 150ms audio crossfade + 80ms video fade-to-black at cut boundaries
 - Stutter/repetition detection ("I'm... I'm", "to... to") flagged as fillers
-- Auto-captions: toggle in review bar, style presets (Clean, Bold, Viral, MrBeast, YT Shorts, TikTok), Whisper words → ASS → FFmpeg burn-in at export
+- Auto-captions: toggle in review bar, style presets, Whisper words → ASS → FFmpeg burn-in
+- Manual cut regions: drag on empty waveform to create custom cuts
+- Undo/redo system with buttons + Ctrl+Z/Ctrl+Shift+Z shortcuts
+- Timeline zoom (Ctrl+scroll) + pan (scroll) + scrollbar
+- Right-click segments to dismiss (convert back to speech)
+- Music mixer: post-export screen with dual-track timeline, library, volume, fade in/out, Web Audio preview
 
 **Pending features (from original plan):**
 - Caption styles: Custom user-defined style editor
+- Music mixer: fix timeline interaction (drag to reposition, Shift+drag to cut — not working)
+- Future: destructive timeline editing (delete removes gaps, timeline collapses, music on main timeline)
+
+## Last Session (2026-04-13)
+- Added manual cut regions (drag on empty timeline to create 'manual' type segments)
+- Built complete music mixer feature (15 files: 7 new, 8 modified)
+  - Architecture: `src/renderer/main/music/` (mixer controller, timeline renderer, interaction)
+  - Backend: `src/main/services/music-library.ts`, `src/main/services/ffmpeg/music-mix.ts`, `src/main/ipc/music.ts`
+  - Types: `src/shared/music-types.ts`, channels in `src/shared/channels.ts`
+- Fixed CSP issue: `file://` URLs blocked in Electron renderer → added `readFileAsBuffer` IPC to serve local files as ArrayBuffers
+- Music mixer loads the exported video (with cuts + captions) not the raw recording
+- **Stopped at:** Music track loads and waveform renders, but timeline interactions don't work — user cannot drag to reposition music or create cuts. The playhead (seek) works. Issue is likely in `music-interaction.ts` hit detection or the interaction→controller wiring.
+
+## Next Steps
+1. Fix music timeline interaction — drag to reposition music track, Shift+drag to cut regions, click cuts to toggle
+2. Caption styles: custom user-defined style editor
+3. Future: rearchitect timeline as destructive editor (gaps collapse on delete, music integrated into main timeline)
 
 ## Tech Stack
 - **Language:** TypeScript (strict mode)
@@ -44,7 +65,8 @@ src/
 ├── preload/                 # Context bridge scripts (one per window)
 ├── renderer/                # Browser-side code
 │   ├── main/                # Preview window, overlays, review screen
-│   │   └── review/          # Review controller, timeline renderer, interaction
+│   │   ├── review/          # Review controller, timeline renderer, interaction
+│   │   └── music/           # Music mixer controller, timeline, interaction
 │   ├── toolbar/             # Floating recording toolbar
 │   ├── edit-modal/          # Post-recording overlay settings
 │   ├── onboarding/          # First-run onboarding
@@ -65,8 +87,11 @@ Fix ALL errors before continuing. No ESLint/Prettier — maintain consistent sty
 
 ## Dev Notes
 - Launch from WSL: `cmd.exe /C "cd /D E:\Projects\Yaatuber && node node_modules\electron\cli.js ."`
+- Build Windows exe: `cmd.exe /C "cd /D E:\Projects\Yaatuber && npx electron-builder --win --dir"`
 - Never use CSS on `<video>` with MediaStream in Electron — use canvas `drawImage` instead
+- Never use `file://` URLs in renderer — use IPC `readFileAsBuffer` to load local files as ArrayBuffers
 - Whisper binary + model auto-installed at startup to `<userData>/bin/` and `<userData>/whisper/`
 - Last recording saved to `<userData>/last-recording.mp4` for recovery
+- Music library persisted to `<userData>/music-library.json`
 - Analysis log written to `<userData>/review-analysis.log` for debugging
 - Review screen uses remuxed playback file for both analysis and export (timestamp consistency)
