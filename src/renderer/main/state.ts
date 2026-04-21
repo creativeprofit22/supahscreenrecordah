@@ -1,4 +1,4 @@
-import type { CameraEnhancement, BlurRegion, AspectRatio, CursorEffectConfig, WatermarkConfig } from '../../shared/types';
+import type { CameraEnhancement, BlurRegion, AspectRatio, Quality, CursorEffectConfig, WatermarkConfig } from '../../shared/types';
 
 // ---------------------------------------------------------------------------
 // Layout & stream state
@@ -72,6 +72,11 @@ export let blurModeActive = false;
 // Aspect ratio state
 // ---------------------------------------------------------------------------
 export let activeAspectRatio: AspectRatio = '16:9';
+
+// ---------------------------------------------------------------------------
+// Output quality state
+// ---------------------------------------------------------------------------
+export let activeQuality: Quality = 'auto';
 
 // ---------------------------------------------------------------------------
 // Perspective tilt state
@@ -192,6 +197,9 @@ export function setBlurModeActive(v: boolean): void { blurModeActive = v; }
 
 // Aspect ratio
 export function setActiveAspectRatio(r: AspectRatio): void { activeAspectRatio = r; }
+
+// Quality
+export function setActiveQuality(q: Quality): void { activeQuality = q; }
 
 // Perspective tilt
 export function setActivePerspective(v: boolean): void { activePerspective = v; }

@@ -36,6 +36,7 @@ const DEFAULT_CONFIG: AppConfig = {
     ctaIntervalMs: 180000,
     blurRegions: [],
     aspectRatio: '16:9',
+    quality: 'auto',
     cursorEffect: { trail: 'none', clickRipple: false, clickRippleColor: '#ffffff' },
     spotlight: false,
     clickSounds: false,

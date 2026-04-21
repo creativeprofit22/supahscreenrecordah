@@ -51,6 +51,7 @@ import {
   activeClickSounds, setActiveClickSounds,
   setActivePerspective, setActivePerspectiveIntensity,
   activeWatermark, setActiveWatermark,
+  setActiveQuality,
 } from './state';
 import { ASPECT_RATIOS } from '../../shared/feature-types';
 
@@ -218,6 +219,10 @@ window.mainAPI.onAspectRatioUpdate((ratio) => {
   if (activeWebcamBlur) {
     void initWebcamBlur(isShortsMode());
   }
+});
+
+window.mainAPI.onQualityUpdate((quality) => {
+  setActiveQuality(quality);
 });
 
 // ---------------------------------------------------------------------------
@@ -480,6 +485,9 @@ initScreenDrag();
 void window.mainAPI.getConfig().then((config) => {
   if (config.overlay) {
     applyOverlay(config.overlay);
+    if (config.overlay.quality) {
+      setActiveQuality(config.overlay.quality);
+    }
   }
 });
 

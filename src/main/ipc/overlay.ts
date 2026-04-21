@@ -140,4 +140,18 @@ export function registerOverlayHandlers(): void {
       main.webContents.send(Channels.ASPECT_RATIO_UPDATE, ratio);
     }
   });
+
+  // ── Output quality update (toolbar → main window) ────────────────
+  ipcMain.on(Channels.QUALITY_UPDATE, (event, quality: string) => {
+    if (!isValidSender(event)) {
+      return;
+    }
+    // Persist to config so the selection survives restarts
+    const cfg = getConfig();
+    void saveConfig({ overlay: { ...cfg.overlay, quality: quality as typeof cfg.overlay.quality } });
+    const main = getMainWindow();
+    if (main && !main.isDestroyed()) {
+      main.webContents.send(Channels.QUALITY_UPDATE, quality);
+    }
+  });
 }

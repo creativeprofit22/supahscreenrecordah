@@ -1,5 +1,5 @@
 export * from './feature-types';
-import type { BlurRegion, AspectRatio, CursorEffectConfig, ProgressBarConfig, WatermarkConfig, IntroOutroConfig, CaptionConfig, SilenceRemovalConfig, ThumbnailConfig, ExportPlatform } from './feature-types';
+import type { BlurRegion, AspectRatio, Quality, CursorEffectConfig, ProgressBarConfig, WatermarkConfig, IntroOutroConfig, CaptionConfig, SilenceRemovalConfig, ThumbnailConfig, ExportPlatform } from './feature-types';
 import type { ReviewAnalysisResult } from './review-types';
 
 /** A pause/resume boundary in the recorded video timeline (seconds) */
@@ -87,6 +87,7 @@ export interface OverlayConfig {
   ctaIntervalMs: number;
   blurRegions: BlurRegion[];
   aspectRatio: AspectRatio;
+  quality: Quality;
   cursorEffect: CursorEffectConfig;
   spotlight: boolean;
   clickSounds: boolean;
@@ -149,6 +150,7 @@ export interface MainAPI {
   onBlurModeToggle: (callback: () => void) => () => void;
   onWebcamBlurToggle: (callback: () => void) => () => void;
   onAspectRatioUpdate: (callback: (ratio: AspectRatio) => void) => () => void;
+  onQualityUpdate: (callback: (quality: Quality) => void) => () => void;
   sendAutosaveChunk: (buffer: ArrayBuffer, extension: string) => Promise<void>;
   autosaveCleanup: () => Promise<void>;
   analyzeForReview: () => Promise<ReviewAnalysisResult>;
@@ -188,6 +190,7 @@ export interface ToolbarAPI {
   onCaptionProgress: (callback: (stage: CaptionStage) => void) => () => void;
   sendPreviewUpdate: (selection: PreviewSelection) => void;
   sendAspectRatioUpdate: (ratio: AspectRatio) => void;
+  sendQualityUpdate: (quality: Quality) => void;
   openEditModal: () => Promise<void>;
   getConfig: () => Promise<AppConfig>;
   saveConfig: (partial: Partial<AppConfig>) => void;

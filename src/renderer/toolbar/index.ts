@@ -1,7 +1,7 @@
 // Toolbar renderer — device enumeration, UI control, recording commands
 
 import { formatTime } from '../../shared/format';
-import type { ScreenSource, BgStyle, RecordingState, AspectRatio } from '../../shared/types';
+import type { ScreenSource, BgStyle, RecordingState, AspectRatio, Quality } from '../../shared/types';
 
 /** Strip USB vendor:product hex IDs like "(2ca3:0023)" from device labels */
 function cleanDeviceLabel(label: string): string {
@@ -25,6 +25,7 @@ const recStopBtn = document.getElementById('rec-stop-btn') as HTMLButtonElement;
 const recTimer = document.getElementById('rec-timer') as HTMLElement;
 
 const aspectRatioSelect = document.getElementById('aspect-ratio-select') as HTMLSelectElement;
+const qualitySelect = document.getElementById('quality-select') as HTMLSelectElement;
 const blurBtn = document.getElementById('blur-btn') as HTMLButtonElement;
 const webcamBlurBtn = document.getElementById('webcam-blur-btn') as HTMLButtonElement;
 
@@ -181,6 +182,12 @@ async function populateDevices(): Promise<void> {
   if (config.overlay?.aspectRatio) {
     aspectRatioSelect.value = config.overlay.aspectRatio;
     window.toolbarAPI.sendAspectRatioUpdate(config.overlay.aspectRatio);
+  }
+
+  // Restore saved output quality
+  if (config.overlay?.quality) {
+    qualitySelect.value = config.overlay.quality;
+    window.toolbarAPI.sendQualityUpdate(config.overlay.quality);
   }
 
   // Restore saved webcam blur state
@@ -381,6 +388,12 @@ aspectRatioSelect.addEventListener('change', () => {
   window.toolbarAPI.sendAspectRatioUpdate(ratio);
   // Persist into overlay config
   window.toolbarAPI.saveConfig({ overlay: { aspectRatio: ratio } } as any);
+});
+
+qualitySelect.addEventListener('change', () => {
+  const quality = qualitySelect.value as Quality;
+  window.toolbarAPI.sendQualityUpdate(quality);
+  window.toolbarAPI.saveConfig({ overlay: { quality } } as any);
 });
 
 window.toolbarAPI.onStateUpdate((state: RecordingState) => {

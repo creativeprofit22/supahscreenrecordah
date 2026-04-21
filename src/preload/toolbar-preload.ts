@@ -59,6 +59,10 @@ const toolbarAPI: ToolbarAPI = {
     ipcRenderer.send(Channels.ASPECT_RATIO_UPDATE, ratio);
   },
 
+  sendQualityUpdate: (quality) => {
+    ipcRenderer.send(Channels.QUALITY_UPDATE, quality);
+  },
+
   setExportPlatforms: (platforms) => ipcRenderer.invoke(Channels.EXPORT_PLATFORMS, platforms),
 
   onChaptersReady: (callback) => {

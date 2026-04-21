@@ -23,8 +23,9 @@ import {
   activeAudioDucking,
   activePerspective, activePerspectiveIntensity,
   activeWatermark,
+  activeQuality,
 } from './state';
-import { ASPECT_RATIOS } from '../../shared/feature-types';
+import { ASPECT_RATIOS, resolveRecordingResolution } from '../../shared/feature-types';
 import {
   screenVideo, cameraVideo, cameraContainer,
   cameraName, cameraSocials,
@@ -81,15 +82,19 @@ interface SocialItemCache {
 }
 
 // ---------------------------------------------------------------------------
-// YouTube-optimal recording settings for 1080p SDR uploads:
-// - Video: 8-12 Mbps at 30fps → we use 12 Mbps for headroom
+// Recording settings:
+// - Video: resolution + bitrate resolved per-session from (quality, aspect,
+//   screen capture dims) via resolveRecordingResolution. Bitrate scales with
+//   output pixel count from a 1080p baseline of 12 Mbps (≈YouTube guidance).
 // - Audio: AAC-LC stereo at 48 kHz, 384 kbps (YouTube's stereo recommendation)
 // - Container: MP4 with H.264 High Profile
 // ---------------------------------------------------------------------------
-const REC_VIDEO_BITRATE = 12_000_000;
 const REC_AUDIO_BITRATE = 384_000;
 const REC_AUDIO_SAMPLE_RATE = 48_000;
 const REC_FRAMERATE = 30;
+
+/** Current session's resolved video bitrate — set at startRecording time. */
+let recActiveVideoBitrate = 12_000_000;
 
 // ---------------------------------------------------------------------------
 // Recording state
@@ -326,8 +331,8 @@ function drawShortsFrame(): void {
   recFrameInProgress = true;
 
   const t0 = performance.now();
-  const w = recCanvas.width;   // 1080
-  const h = recCanvas.height;  // 1920
+  const w = recCanvas.width;
+  const h = recCanvas.height;
 
   // Black background
   recCtx.fillStyle = '#000000';
@@ -1003,9 +1008,21 @@ export async function startRecording(micDeviceId: string | null): Promise<void> 
     recCanvasStream = null;
   }
 
-  const arConfig = ASPECT_RATIOS[activeAspectRatio];
-  const outputW = arConfig.width;
-  const outputH = arConfig.height;
+  // Resolve output resolution + bitrate from the active quality preset.
+  // For Auto, snap to the screen capture's short edge so we don't up-/downscale
+  // the source unnecessarily (the canvas matches the monitor's native class).
+  const srcTrack = screenStream?.getVideoTracks()[0];
+  const srcSettings = srcTrack?.getSettings() ?? {};
+  const { width: outputW, height: outputH, bitrate } = resolveRecordingResolution(
+    activeQuality,
+    activeAspectRatio,
+    srcSettings.width,
+    srcSettings.height,
+  );
+  recActiveVideoBitrate = bitrate;
+  console.log(
+    `[rec] quality=${activeQuality} aspect=${activeAspectRatio} → ${outputW}x${outputH} @ ${Math.round(bitrate / 1_000_000)} Mbps (source ${srcSettings.width}x${srcSettings.height})`,
+  );
   recCanvas = document.createElement('canvas');
   recCanvas.width = outputW;
   recCanvas.height = outputH;
@@ -1127,7 +1144,7 @@ export async function startRecording(micDeviceId: string | null): Promise<void> 
 
   recMediaRecorder = new MediaRecorder(recCombinedStream, {
     mimeType,
-    videoBitsPerSecond: REC_VIDEO_BITRATE,
+    videoBitsPerSecond: recActiveVideoBitrate,
     audioBitsPerSecond: REC_AUDIO_BITRATE,
   });
   recChunks = [];
@@ -1181,7 +1198,7 @@ export async function startRecording(micDeviceId: string | null): Promise<void> 
 
         recMediaRecorder = new MediaRecorder(recCombinedStream, {
           mimeType: webmMime,
-          videoBitsPerSecond: REC_VIDEO_BITRATE,
+          videoBitsPerSecond: recActiveVideoBitrate,
           audioBitsPerSecond: REC_AUDIO_BITRATE,
         });
 

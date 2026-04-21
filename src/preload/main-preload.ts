@@ -8,6 +8,7 @@ import type {
   MouseClickEvent,
   ActionEvent,
   AspectRatio,
+  Quality,
 } from '../shared/types';
 
 const mainAPI: MainAPI = {
@@ -131,6 +132,13 @@ const mainAPI: MainAPI = {
     ipcRenderer.removeAllListeners(Channels.ASPECT_RATIO_UPDATE);
     ipcRenderer.on(Channels.ASPECT_RATIO_UPDATE, handler);
     return () => { ipcRenderer.removeListener(Channels.ASPECT_RATIO_UPDATE, handler); };
+  },
+
+  onQualityUpdate: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, quality: Quality) => callback(quality);
+    ipcRenderer.removeAllListeners(Channels.QUALITY_UPDATE);
+    ipcRenderer.on(Channels.QUALITY_UPDATE, handler);
+    return () => { ipcRenderer.removeListener(Channels.QUALITY_UPDATE, handler); };
   },
 
   sendAutosaveChunk: (buffer, extension) =>

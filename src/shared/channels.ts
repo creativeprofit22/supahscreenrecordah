@@ -62,6 +62,8 @@ export const Channels = {
   WEBCAM_BLUR_TOGGLE: 'webcam-blur:toggle',
   // Aspect ratio
   ASPECT_RATIO_UPDATE: 'aspect-ratio:update',
+  // Output quality (resolution + bitrate)
+  QUALITY_UPDATE: 'quality:update',
   // Countdown
   COUNTDOWN_TICK: 'countdown:tick',
   // Watermark
