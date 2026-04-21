@@ -64,6 +64,19 @@ export function registerMusicHandlers(): void {
     return result.filePaths[0];
   });
 
+  ipcMain.handle(Channels.MUSIC_PICK_VIDEO, async (event) => {
+    if (!isValidSender(event)) return null;
+    const result = await dialog.showOpenDialog({
+      title: 'Select Video',
+      filters: [
+        { name: 'Video', extensions: ['mp4', 'mov', 'mkv', 'webm', 'avi', 'm4v'] },
+      ],
+      properties: ['openFile'],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+  });
+
   // --- Waveform ---
 
   ipcMain.handle(Channels.MUSIC_GET_WAVEFORM, async (event, filePath: string) => {
@@ -86,16 +99,30 @@ export function registerMusicHandlers(): void {
   // --- Mix export ---
 
   ipcMain.handle(Channels.MUSIC_MIX_EXPORT, async (event, opts: MusicMixOptions) => {
-    if (!isValidSender(event)) return;
+    if (!isValidSender(event)) return null;
 
-    // Write to a temp file first, then replace the original
+    // Write the mix to a sibling file named "<stem>.music.mp4" so the
+    // original edited video is never overwritten. If a crash or power loss
+    // interrupts ffmpeg mid-write, the source file is still intact.
+    const dir = path.dirname(opts.videoPath);
+    const ext = path.extname(opts.videoPath) || '.mp4';
+    const stem = path.basename(opts.videoPath, ext);
+    let finalOutput = path.join(dir, `${stem}.music${ext}`);
+    let suffix = 2;
+    while (fs.existsSync(finalOutput)) {
+      finalOutput = path.join(dir, `${stem}.music-${suffix}${ext}`);
+      suffix++;
+    }
+
+    // ffmpeg writes to a temp file in the OS temp dir first, then we move
+    // it into place atomically — keeps partial writes out of the output dir.
     const tmpOutput = path.join(os.tmpdir(), `supahscreenrecordah-music-mix-${Date.now()}.mp4`);
     try {
       await mixMusic({ ...opts, outputPath: tmpOutput });
-      // Replace original video with mixed version
-      await fs.promises.copyFile(tmpOutput, opts.videoPath);
+      await fs.promises.copyFile(tmpOutput, finalOutput);
     } finally {
       try { await fs.promises.unlink(tmpOutput); } catch { /* ignore */ }
     }
+    return finalOutput;
   });
 }

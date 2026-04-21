@@ -22,7 +22,9 @@ import {
   bulkRemoveSilences, bulkRemoveFillers, bulkRemoveSilencesAndFillers,
   trimTail, trimHead, undoAll, getTrimIn, getTrimOut, resetZoom,
   undo, redo,
+  setRecordingMtimeForSession, setCaptionStyleForSession, clearSessionOnDisk,
 } from './review/review-controller';
+import type { ReviewSession } from '../../shared/review-types';
 import { showMusicMixer, hideMusicMixer, isMusicMixerActive, initMusicMixerHandlers } from './music/music-mixer';
 import { getCaptionYFraction, getCaptionXFraction, getCaptionScale, getCaptionHighlightColor, invalidateCaptionCache } from './review/caption-preview';
 import { openCaptionEditor, closeCaptionEditor, initCaptionEditorListeners } from './review/caption-editor';
@@ -83,6 +85,14 @@ export async function enterPlaybackMode(blob: Blob): Promise<void> {
   // Hide processing indicator
   processingOverlay.classList.add('hidden');
 
+  // Fresh recording — wipe any leftover session from the previous take and
+  // pair the new session with the just-written last-recording.mp4 mtime.
+  await window.mainAPI.clearReviewSession();
+  try {
+    const info = await window.mainAPI.hasLastRecording();
+    if (info.exists) setRecordingMtimeForSession(info.modified);
+  } catch { /* ignore */ }
+
   // Start review analysis (waveform + transcription) in the background
   void initReview();
 
@@ -105,9 +115,71 @@ export async function enterPlaybackMode(blob: Blob): Promise<void> {
   playbackContainer.classList.remove('hidden');
 }
 
+/**
+ * Shortcut entry that skips the review screen entirely and goes straight
+ * into the music mixer on an already-edited video file. Used by the
+ * "Add music to a video" button on the main screen.
+ */
+export async function enterMusicOnlyMode(videoPath: string): Promise<void> {
+  console.log('[music-only] Opening music mixer for:', videoPath);
+  previewContainer.style.display = 'none';
+
+  processingSub.textContent = 'Loading video...';
+  processingOverlay.classList.remove('hidden');
+
+  try {
+    const buffer = await window.mainAPI.readFileAsBuffer(videoPath);
+    if (!buffer) throw new Error('Failed to read video file');
+
+    if (playbackBlobUrl) {
+      URL.revokeObjectURL(playbackBlobUrl);
+      playbackBlobUrl = null;
+    }
+    const blob = new Blob([buffer], { type: 'video/mp4' });
+    playbackBlobUrl = URL.createObjectURL(blob);
+    playbackVideo.src = playbackBlobUrl;
+
+    await new Promise<void>((resolve) => {
+      const onReady = (): void => {
+        playbackVideo.removeEventListener('loadedmetadata', onReady);
+        playbackVideo.removeEventListener('error', onReady);
+        resolve();
+      };
+      playbackVideo.addEventListener('loadedmetadata', onReady);
+      playbackVideo.addEventListener('error', onReady);
+      playbackVideo.load();
+    });
+
+    processingSub.textContent = 'Analyzing audio...';
+    const wf = await window.mainAPI.getMusicWaveform(videoPath);
+    let dur = playbackVideo.duration;
+    if (!Number.isFinite(dur) || dur <= 0) dur = wf.duration;
+    if (!Number.isFinite(dur) || dur <= 0) dur = 0;
+
+    playbackContainer.classList.remove('hidden');
+    // Hide review UI — this flow never touched it, but bars may linger from
+    // stylesheet defaults on first run.
+    const reviewActionsBar = document.getElementById('review-actions-bar');
+    const reviewTimeline = document.getElementById('review-timeline');
+    if (reviewActionsBar) reviewActionsBar.classList.remove('visible');
+    if (reviewTimeline) reviewTimeline.classList.remove('visible', 'slide-up');
+
+    initMusicMixerHandlers();
+    processingOverlay.classList.add('hidden');
+
+    await showMusicMixer(videoPath, wf, dur, () => {
+      exitPlaybackMode();
+    });
+  } catch (err) {
+    console.error('[music-only] Failed to open:', err);
+    processingOverlay.classList.add('hidden');
+    exitPlaybackMode();
+  }
+}
+
 /** Enter playback from a pre-existing buffer (e.g. last recording recovery). */
-export async function enterPlaybackFromBuffer(buffer: ArrayBuffer): Promise<void> {
-  console.log('[rec] enterPlaybackFromBuffer — size:', buffer.byteLength);
+export async function enterPlaybackFromBuffer(buffer: ArrayBuffer, resumeSession?: ReviewSession): Promise<void> {
+  console.log('[rec] enterPlaybackFromBuffer — size:', buffer.byteLength, 'resume:', !!resumeSession);
   const blob = new Blob([buffer], { type: 'video/mp4' });
   pendingRecordingBlob = blob;
   pendingPauseTimestamps = [];
@@ -117,8 +189,15 @@ export async function enterPlaybackFromBuffer(buffer: ArrayBuffer): Promise<void
   playbackVideo.src = playbackBlobUrl;
   console.log('[rec] Set playbackVideo.src from last recording');
 
-  // Start review analysis
-  void initReview();
+  // Pair the in-memory session with the recording on disk so the autosave
+  // written during editing can be matched back to this file on next launch.
+  try {
+    const info = await window.mainAPI.hasLastRecording();
+    if (info.exists) setRecordingMtimeForSession(info.modified);
+  } catch { /* ignore */ }
+
+  // Start review (analyze, or rehydrate from the saved session)
+  void initReview(resumeSession);
 
   playbackVideo.onloadedmetadata = () => {
     console.log('[rec] Last recording loaded — duration:', playbackVideo.duration);
@@ -274,17 +353,21 @@ export function initPlaybackHandlers(): void {
 
         console.log('[rec] Export complete:', filePath);
 
+        // The edit has been committed to disk — discard the autosave so the
+        // resume banner doesn't offer stale cuts next launch.
+        clearSessionOnDisk();
+
         // Transition to music mixer — load the exported file so user sees the final video
         processingOverlay.classList.add('hidden');
         playbackContainer.classList.remove('hidden');
 
-        // Hide review UI, show music mixer
-        const reviewActionsBar = document.getElementById('review-actions-bar');
+        // Shut the review screen down fully before the music mixer opens.
+        // Without this, its rAF keeps repainting the caption overlay and
+        // timeline canvases on top of the music UI — producing "two layers
+        // of subtitles" and ghost cuts on the just-exported video.
+        destroyReview();
         const captionPicker = document.getElementById('caption-style-picker');
-        const reviewTimeline = document.getElementById('review-timeline');
-        if (reviewActionsBar) reviewActionsBar.classList.remove('visible');
         if (captionPicker) captionPicker.classList.add('hidden');
-        if (reviewTimeline) reviewTimeline.classList.remove('visible', 'slide-up');
 
         // Swap video source to the exported file (with cuts + captions applied)
         // Read via IPC to bypass CSP restrictions on file:// URLs
@@ -431,6 +514,7 @@ export function initPlaybackHandlers(): void {
       captionEditBtn.classList.remove('hidden');
       srtToggleLabel.classList.remove('hidden');
     }
+    setCaptionStyleForSession(selectedCaptionStyle);
   });
 
   // --- Caption editor -------------------------------------------------------

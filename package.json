@@ -23,6 +23,8 @@
     "postbuild": "node scripts/verify-build.js",
     "build:icon": "node scripts/generate-icon.js",
     "dist:win": "npm run build && npx electron-builder --win --dir",
+    "launch:win": "node scripts/launch-win.js",
+    "win:go": "node scripts/build-and-launch-win.js",
     "dist:win:installer": "npm run build && npx electron-builder --win nsis",
     "dist:mac": "npm run build && npx electron-builder --mac --dir",
     "dist:mac:installer": "npm run build && npx electron-builder --mac dmg",

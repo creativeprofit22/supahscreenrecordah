@@ -811,10 +811,10 @@ async function handleExportWithMusic(): Promise<void> {
   processingSub.textContent = 'Mixing music...';
 
   try {
-    await window.mainAPI.mixMusicExport({
+    const savedPath = await window.mainAPI.mixMusicExport({
       videoPath: exportedVideoPath,
       musicPath: currentTrack.path,
-      outputPath: exportedVideoPath,
+      outputPath: exportedVideoPath, // ignored by the main-process handler (writes to sibling)
       volume: musicVolume,
       cards,
       musicDuration: currentTrack.duration,
@@ -822,6 +822,7 @@ async function handleExportWithMusic(): Promise<void> {
       fadeInSec,
       fadeOutSec,
     });
+    if (savedPath) console.log('[music-mixer] Saved with music to:', savedPath);
   } catch (err) {
     console.error('[music-mixer] Export failed:', err);
   } finally {

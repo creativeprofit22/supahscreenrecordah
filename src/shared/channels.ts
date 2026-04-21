@@ -98,9 +98,14 @@ export const Channels = {
   MUSIC_ADD_TRACK: 'music:add-track',
   MUSIC_REMOVE_TRACK: 'music:remove-track',
   MUSIC_PICK_FILE: 'music:pick-file',
+  MUSIC_PICK_VIDEO: 'music:pick-video',
   MUSIC_GET_WAVEFORM: 'music:get-waveform',
   MUSIC_SET_LAST_TRACK: 'music:set-last-track',
   MUSIC_SET_LAST_VOLUME: 'music:set-last-volume',
   MUSIC_MIX_EXPORT: 'music:mix-export',
   MUSIC_READ_FILE: 'music:read-file',
+  // Review session persistence (cuts/trims auto-saved so they survive crashes)
+  REVIEW_SESSION_SAVE: 'review:session-save',
+  REVIEW_SESSION_LOAD: 'review:session-load',
+  REVIEW_SESSION_CLEAR: 'review:session-clear',
 } as const;

@@ -163,11 +163,17 @@ const mainAPI: MainAPI = {
   addMusicTrack: (filePath: string) => ipcRenderer.invoke(Channels.MUSIC_ADD_TRACK, filePath),
   removeMusicTrack: (trackId: string) => ipcRenderer.invoke(Channels.MUSIC_REMOVE_TRACK, trackId),
   pickMusicFile: () => ipcRenderer.invoke(Channels.MUSIC_PICK_FILE),
+  pickVideoFile: () => ipcRenderer.invoke(Channels.MUSIC_PICK_VIDEO),
   getMusicWaveform: (filePath: string) => ipcRenderer.invoke(Channels.MUSIC_GET_WAVEFORM, filePath),
   setLastMusicTrack: (trackId: string | null) => ipcRenderer.invoke(Channels.MUSIC_SET_LAST_TRACK, trackId),
   setLastMusicVolume: (volume: number) => ipcRenderer.invoke(Channels.MUSIC_SET_LAST_VOLUME, volume),
   mixMusicExport: (opts) => ipcRenderer.invoke(Channels.MUSIC_MIX_EXPORT, opts),
   readFileAsBuffer: (filePath: string) => ipcRenderer.invoke(Channels.MUSIC_READ_FILE, filePath),
+
+  // Review session autosave (cuts/trims/captions on disk, survives crashes)
+  saveReviewSession: (session) => ipcRenderer.invoke(Channels.REVIEW_SESSION_SAVE, session),
+  loadReviewSession: () => ipcRenderer.invoke(Channels.REVIEW_SESSION_LOAD),
+  clearReviewSession: () => ipcRenderer.invoke(Channels.REVIEW_SESSION_CLEAR),
 };
 
 contextBridge.exposeInMainWorld('mainAPI', mainAPI);

@@ -16,7 +16,7 @@ export function getPlaybackTempFile(): string | null {
 }
 
 /** Persistent path for the last recording (survives app restarts). */
-function getLastRecordingPath(): string {
+export function getLastRecordingPath(): string {
   return path.join(app.getPath('userData'), 'last-recording.mp4');
 }
 

@@ -164,10 +164,14 @@ export interface MainAPI {
   addMusicTrack: (filePath: string) => Promise<import('./music-types').MusicTrack>;
   removeMusicTrack: (trackId: string) => Promise<void>;
   pickMusicFile: () => Promise<string | null>;
+  pickVideoFile: () => Promise<string | null>;
   getMusicWaveform: (filePath: string) => Promise<import('./review-types').WaveformData>;
   setLastMusicTrack: (trackId: string | null) => Promise<void>;
   setLastMusicVolume: (volume: number) => Promise<void>;
-  mixMusicExport: (opts: import('./music-types').MusicMixOptions) => Promise<void>;
+  mixMusicExport: (opts: import('./music-types').MusicMixOptions) => Promise<string | null>;
+  saveReviewSession: (session: import('./review-types').ReviewSession) => Promise<void>;
+  loadReviewSession: () => Promise<import('./review-types').ReviewSession | null>;
+  clearReviewSession: () => Promise<void>;
   readFileAsBuffer: (filePath: string) => Promise<ArrayBuffer | null>;
 }
 

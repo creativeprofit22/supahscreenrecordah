@@ -86,8 +86,15 @@ npm run typecheck && npm run build
 Fix ALL errors before continuing. No ESLint/Prettier — maintain consistent style manually.
 
 ## Dev Notes
-- Launch from WSL: `cmd.exe /C "cd /D E:\Projects\Yaatuber && node node_modules\electron\cli.js ."`
-- Build Windows exe: `cmd.exe /C "cd /D E:\Projects\Yaatuber && npx electron-builder --win --dir"`
+- Launch dev (unpackaged, from source): `cmd.exe /C "cd /D E:\Projects\Yaatuber && node node_modules\electron\cli.js ."`
+- **Build + launch packaged Windows exe: `npm run win:go`** — ALWAYS use this for
+  "rebuild the extracted exe and launch on Windows" requests. It runs a clean
+  build (`dist:win`) and launches the packaged exe detached via `launch-win.js`.
+  Do NOT run `npx electron-builder --win --dir` directly — that skips the tsc/tsdown
+  build step, so stale `dist/` files get packaged and the exe throws "JavaScript
+  error" or "Windows cannot find a file" at launch.
+- Build only (no launch): `npm run dist:win`
+- Launch only (exe must already exist): `npm run launch:win`
 - Never use CSS on `<video>` with MediaStream in Electron — use canvas `drawImage` instead
 - Never use `file://` URLs in renderer — use IPC `readFileAsBuffer` to load local files as ArrayBuffers
 - Whisper binary + model auto-installed at startup to `<userData>/bin/` and `<userData>/whisper/`

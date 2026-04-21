@@ -5,7 +5,12 @@ import os from 'os';
 import { Channels } from '../../shared/channels';
 import { isValidSender } from './helpers';
 import { isValidSavePath } from '../../shared/paths';
-import { getPlaybackTempFile } from './playback';
+import { getPlaybackTempFile, getLastRecordingPath } from './playback';
+import type { ReviewSession } from '../../shared/review-types';
+
+function getReviewSessionPath(): string {
+  return path.join(app.getPath('userData'), 'review-session.json');
+}
 import { extractWaveform } from '../services/waveform';
 import { transcribeWithWhisper } from '../services/whisper-transcribe';
 import { findWhisper, findWhisperModel, installWhisper, installWhisperModel } from '../services/whisper';
@@ -350,6 +355,47 @@ export function registerReviewHandlers(): void {
 
     const result: ReviewAnalysisResult = { waveform, segments, words };
     return result;
+  });
+
+  // --- Review session autosave ----------------------------------------------
+  // The renderer writes here after every cut/trim/caption change (debounced).
+  // On next app start, if the recording's mtime matches, we offer to resume.
+  ipcMain.handle(Channels.REVIEW_SESSION_SAVE, async (event, session: ReviewSession) => {
+    if (!isValidSender(event)) return;
+    try {
+      await fs.promises.writeFile(
+        getReviewSessionPath(),
+        JSON.stringify(session),
+        'utf-8',
+      );
+    } catch (err) {
+      console.warn('[review-session] save failed:', err);
+    }
+  });
+
+  ipcMain.handle(Channels.REVIEW_SESSION_LOAD, async (event) => {
+    if (!isValidSender(event)) return null;
+    try {
+      const raw = await fs.promises.readFile(getReviewSessionPath(), 'utf-8');
+      const session = JSON.parse(raw) as ReviewSession;
+      // Pair the session with the recording by mtime — if last-recording.mp4
+      // has been replaced by a newer take, the saved cuts are for a different
+      // video and must not be applied.
+      try {
+        const stat = await fs.promises.stat(getLastRecordingPath());
+        if (Math.abs(stat.mtimeMs - session.recordingMtime) > 1) return null;
+      } catch {
+        return null;
+      }
+      return session;
+    } catch {
+      return null;
+    }
+  });
+
+  ipcMain.handle(Channels.REVIEW_SESSION_CLEAR, async (event) => {
+    if (!isValidSender(event)) return;
+    try { await fs.promises.unlink(getReviewSessionPath()); } catch { /* ignore */ }
   });
 
   // --- Check whisper availability -------------------------------------------

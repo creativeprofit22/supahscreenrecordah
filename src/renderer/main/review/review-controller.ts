@@ -13,7 +13,7 @@ import {
   getSnapIndicatorTime, getRangeSelectState,
   type HitState,
 } from './timeline-interaction';
-import type { ReviewSegment, ReviewState } from '../../../shared/review-types';
+import type { ReviewSegment, ReviewState, ReviewSession } from '../../../shared/review-types';
 import { renderCaptionPreview, resetCaptionPreview } from './caption-preview';
 import { getActiveCaptionStyle } from '../playback';
 
@@ -48,6 +48,59 @@ const undoStack: Snapshot[] = [];
 const redoStack: Snapshot[] = [];
 const MAX_UNDO = 100;
 
+// ---------------------------------------------------------------------------
+// Session autosave — every state change writes the current cuts/trims/words
+// to disk (debounced 800ms) so a crash or power loss doesn't wipe the
+// trimming work. Paired with the recording file's mtime; see ipc/review.ts.
+// ---------------------------------------------------------------------------
+
+let recordingMtime = 0;
+let captionStyleForSession: string | null = null;
+let sessionSaveTimer: number | null = null;
+
+/** Attach the mtime of the recording this review session refers to. */
+export function setRecordingMtimeForSession(mtime: number): void {
+  recordingMtime = mtime;
+}
+
+/** Let playback.ts notify us when the caption style selection changes. */
+export function setCaptionStyleForSession(style: string | null): void {
+  captionStyleForSession = style;
+  scheduleSessionSave();
+}
+
+function scheduleSessionSave(): void {
+  if (!state || recordingMtime <= 0) return;
+  if (sessionSaveTimer !== null) {
+    clearTimeout(sessionSaveTimer);
+  }
+  sessionSaveTimer = window.setTimeout(() => {
+    sessionSaveTimer = null;
+    if (!state) return;
+    const session: ReviewSession = {
+      recordingMtime,
+      savedAt: Date.now(),
+      segments: state.segments.map(s => ({ ...s })),
+      waveform: state.waveform,
+      words: state.words,
+      trimIn,
+      trimOut: trimOut === Infinity ? null : trimOut,
+      duration: state.duration,
+      captionStyle: captionStyleForSession,
+    };
+    void window.mainAPI.saveReviewSession(session);
+  }, 800);
+}
+
+/** Wipe the on-disk session — call after a successful export. */
+export function clearSessionOnDisk(): void {
+  if (sessionSaveTimer !== null) {
+    clearTimeout(sessionSaveTimer);
+    sessionSaveTimer = null;
+  }
+  void window.mainAPI.clearReviewSession();
+}
+
 function takeSnapshot(): Snapshot {
   return {
     segments: (state?.segments ?? []).map(s => ({ ...s })),
@@ -61,6 +114,7 @@ function pushUndo(): void {
   if (undoStack.length > MAX_UNDO) undoStack.shift();
   redoStack.length = 0; // new action clears redo
   updateUndoRedoButtons();
+  scheduleSessionSave();
 }
 
 function applySnapshot(snap: Snapshot): void {
@@ -75,6 +129,7 @@ export function undo(): void {
   redoStack.push(takeSnapshot());
   applySnapshot(undoStack.pop()!);
   updateUndoRedoButtons();
+  scheduleSessionSave();
 }
 
 export function redo(): void {
@@ -82,6 +137,7 @@ export function redo(): void {
   undoStack.push(takeSnapshot());
   applySnapshot(redoStack.pop()!);
   updateUndoRedoButtons();
+  scheduleSessionSave();
 }
 
 function updateUndoRedoButtons(): void {
@@ -98,12 +154,16 @@ function updateUndoRedoButtons(): void {
 /**
  * Called after video loads in playback mode.
  * Shows processing overlay, runs analysis IPC, then shows timeline.
+ *
+ * When a `resumeSession` is passed, the expensive analysis step is skipped
+ * and state is rehydrated from the saved session — gives the user an
+ * immediate-resume path after a crash/power-loss without re-transcribing.
  */
-export async function initReview(): Promise<void> {
+export async function initReview(resumeSession?: ReviewSession): Promise<void> {
   destroyed = false;
 
   // Show processing overlay
-  processingSub.textContent = 'Analyzing audio...';
+  processingSub.textContent = resumeSession ? 'Resuming last edit...' : 'Analyzing audio...';
   processingOverlay.classList.remove('hidden');
 
   // Start a 30s timer for "Still working..." subtext
@@ -117,7 +177,9 @@ export async function initReview(): Promise<void> {
   reviewTimeline.classList.add('visible', 'skeleton');
 
   try {
-    const result = await window.mainAPI.analyzeForReview();
+    const result = resumeSession
+      ? { waveform: resumeSession.waveform, segments: resumeSession.segments, words: resumeSession.words }
+      : await window.mainAPI.analyzeForReview();
 
     clearTimeout(stillWorkingTimer);
 
@@ -131,15 +193,22 @@ export async function initReview(): Promise<void> {
       playheadPosition: 0,
     };
 
-    // Initialize trim points and zoom to full duration
-    trimIn = 0;
-    trimOut = state.duration;
+    // Initialize trim points and zoom — honor the saved session if present.
+    if (resumeSession) {
+      trimIn = resumeSession.trimIn;
+      trimOut = resumeSession.trimOut === null ? state.duration : resumeSession.trimOut;
+    } else {
+      trimIn = 0;
+      trimOut = state.duration;
+    }
     viewStart = 0;
     viewEnd = state.duration;
     undoStack.length = 0;
     redoStack.length = 0;
 
-    console.log('[review-controller] Analysis complete — segments:', state.segments.length, 'duration:', state.duration);
+    console.log('[review-controller] %s — segments:%d duration:%d',
+      resumeSession ? 'Session resumed' : 'Analysis complete',
+      state.segments.length, state.duration);
 
     // Remove skeleton, add slide-up animation
     reviewTimeline.classList.remove('skeleton');
@@ -521,6 +590,17 @@ export function destroyReview(): void {
 
   reviewActionsBar.classList.remove('visible');
   reviewTimeline.classList.remove('visible', 'skeleton', 'slide-up');
+
+  // Clear pixels from both canvases — rAF stopped mid-frame, so the last
+  // rendered frame would otherwise sit on screen under the next view.
+  captionOverlayCtx.clearRect(0, 0, captionOverlay.width, captionOverlay.height);
+  timelineCtx.clearRect(0, 0, timelineCanvas.width, timelineCanvas.height);
+  captionOverlay.style.display = 'none';
+}
+
+/** Re-show overlay canvas after it was hidden by destroyReview. */
+export function showReviewCanvases(): void {
+  captionOverlay.style.display = '';
 }
 
 // ---------------------------------------------------------------------------
